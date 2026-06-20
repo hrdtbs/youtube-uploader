@@ -9,6 +9,7 @@ updates:
     open-pull-requests-limit: 10
     cooldown:
       default-days: 1
+    versioning-strategy: increase
 
   - package-ecosystem: cargo
     directory: /src-tauri

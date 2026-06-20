@@ -36,6 +36,9 @@ jobs:
       - name: Prettier
         run: pnpm format:check
 
+      - name: Pinned dependencies
+        run: pnpm check:pinned-deps
+
   lint-rust:
     name: Lint Rust
     runs-on: ubuntu-latest
