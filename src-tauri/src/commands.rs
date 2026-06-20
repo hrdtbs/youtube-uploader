@@ -10,10 +10,10 @@ use crate::config::paths::{default_config_path, resolve_config_path};
 use crate::config::settings::{
     load_settings, resolve_playlist_id, resolve_upload_dir, save_settings,
 };
-use crate::youtube::auth::{get_auth_status, get_authorized_client, run_auth_login};
+use crate::youtube::auth::{get_auth_status, get_authorized_client, run_auth_login, run_auth_logout};
 use crate::youtube::types::{
-    AppConfigDto, AppSettings, AuthStatus, AuthenticatedChannel, ChannelVideo, UploadPreviewItem,
-    UploadSummary, VideoCategory,
+    AppConfigDto, AppSettings, AuthStatus, AuthenticatedChannel, ChannelVideo, PlaylistSummary,
+    UploadPreviewItem, UploadSummary, VideoCategory,
 };
 
 #[tauri::command]
@@ -30,6 +30,11 @@ pub async fn auth_status() -> Result<AuthStatus, String> {
 pub async fn auth_channels() -> Result<Vec<AuthenticatedChannel>, String> {
     let client = get_authorized_client().await.map_err(|error| error.to_string())?;
     client.fetch_my_channels().await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn auth_logout() -> Result<(), String> {
+    run_auth_logout().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -50,7 +55,7 @@ pub async fn categories_list(
 ) -> Result<Vec<VideoCategory>, String> {
     let region_code = region.unwrap_or_else(|| "JP".to_string()).to_uppercase();
     if region_code.len() != 2 || !region_code.chars().all(|ch| ch.is_ascii_alphabetic()) {
-        return Err("region must be an ISO 3166-1 alpha-2 code (e.g. JP, US).".to_string());
+        return Err("地域コードは2文字の英字（例: JP、US）で指定してください。".to_string());
     }
 
     let client = get_authorized_client().await.map_err(|error| error.to_string())?;
@@ -67,13 +72,22 @@ pub async fn categories_list(
 }
 
 #[tauri::command]
+pub async fn playlists_list() -> Result<Vec<PlaylistSummary>, String> {
+    let client = get_authorized_client().await.map_err(|error| error.to_string())?;
+    client
+        .list_my_playlists()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub async fn playlists_add(
     playlist: Option<String>,
     config_path: Option<String>,
     video_ids: Vec<String>,
 ) -> Result<String, String> {
     if video_ids.is_empty() {
-        return Err("Select at least one video.".to_string());
+        return Err("動画を1件以上選択してください。".to_string());
     }
 
     ensure_default_config()
@@ -111,7 +125,7 @@ pub async fn playlists_add(
     }
 
     Ok(format!(
-        "Summary - added: {added}, failed: {failed}, playlist: {playlist_id}"
+        "追加完了: 成功 {added} 件、失敗 {failed} 件（再生リスト: {playlist_id}）"
     ))
 }
 

@@ -83,6 +83,18 @@ pub async fn save_token_file(token: &TokenFile) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub async fn delete_token_file() -> anyhow::Result<()> {
+    match tokio::fs::remove_file(token_path()).await {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
+}
+
+pub async fn run_auth_logout() -> anyhow::Result<()> {
+    delete_token_file().await
+}
+
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
     access_token: String,
@@ -218,7 +230,7 @@ pub async fn get_auth_status() -> AuthStatus {
             access_token_expires: None,
             refresh_token_present: false,
             channels: vec![],
-            message: Some("Not authenticated.".to_string()),
+            message: Some("ログインしていません。".to_string()),
         };
     };
 

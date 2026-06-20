@@ -1,4 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Autocomplete,
+  Button,
+  Card,
+  Center,
+  Checkbox,
+  Group,
+  Loader,
+  NativeSelect,
+  Paper,
+  Pill,
+  Stack,
+  Text,
+  Textarea,
+  TextInput,
+  Title,
+} from "@mantine/core";
+import { DateInput } from "@mantine/dates";
 import {
   categoriesList,
   configGet,
@@ -7,6 +26,8 @@ import {
   settingsGet,
   settingsSet,
 } from "../lib/tauri";
+import PlaylistPicker from "../components/PlaylistPicker";
+import { formatErrorMessage } from "../lib/labels";
 import type { AppConfig, ScheduleSlotDef, VideoCategory } from "../types";
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -35,7 +56,27 @@ function inputToTime(value: string): string {
   return value.length === 5 ? value : value;
 }
 
-export default function SettingsPage() {
+function buildConfigPayload(
+  config: AppConfig,
+  startDateAuto: boolean,
+  manualStartDate: string,
+): AppConfig {
+  return {
+    ...config,
+    schedule: {
+      ...config.schedule,
+      startDate: startDateAuto ? "auto" : manualStartDate,
+      slots: config.schedule.slots.map((slot) => ({
+        ...slot,
+        weekday: slot.daily ? null : (slot.weekday ?? 0),
+      })),
+    },
+  };
+}
+
+const AUTO_SAVE_DELAY_MS = 500;
+
+export default function SettingsPage({ authenticated }: { authenticated: boolean }) {
   const [uploadDir, setUploadDir] = useState("");
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [tagInput, setTagInput] = useState("");
@@ -46,6 +87,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const skipAutoSave = useRef(true);
+  const saveVersion = useRef(0);
 
   useEffect(() => {
     void (async () => {
@@ -66,12 +109,57 @@ export default function SettingsPage() {
           // カテゴリ取得失敗時は数値入力にフォールバック
         }
       } catch (err) {
-        setError(String(err));
+        setError(formatErrorMessage(err));
       } finally {
         setLoading(false);
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (loading || !config) {
+      return;
+    }
+
+    if (skipAutoSave.current) {
+      skipAutoSave.current = false;
+      return;
+    }
+
+    const version = ++saveVersion.current;
+    setSaving(true);
+    setMessage(null);
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const payload = buildConfigPayload(config, startDateAuto, manualStartDate);
+
+        try {
+          await settingsSet({ upload_dir: uploadDir || null });
+          await configSet(payload);
+          if (version !== saveVersion.current) {
+            return;
+          }
+          setError(null);
+          setMessage("保存しました");
+        } catch (err) {
+          if (version !== saveVersion.current) {
+            return;
+          }
+          setError(formatErrorMessage(err));
+          setMessage(null);
+        } finally {
+          if (version === saveVersion.current) {
+            setSaving(false);
+          }
+        }
+      })();
+    }, AUTO_SAVE_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [config, uploadDir, startDateAuto, manualStartDate, loading]);
 
   async function handlePickDirectory() {
     const selected = await pickDirectory("デフォルト動画フォルダ");
@@ -84,22 +172,51 @@ export default function SettingsPage() {
     setConfig((current) => (current ? updater(current) : current));
   }
 
-  function handleAddTag() {
-    const value = tagInput.trim();
-    if (!value || !config) {
+  function addTags(rawTags: string[]) {
+    if (!config) {
       return;
     }
-    if (config.template.tags.includes(value)) {
-      setTagInput("");
+    const existing = new Set(config.template.tags);
+    const toAdd: string[] = [];
+    for (const tag of rawTags) {
+      const value = tag.trim();
+      if (value && !existing.has(value)) {
+        existing.add(value);
+        toAdd.push(value);
+      }
+    }
+    if (toAdd.length === 0) {
       return;
     }
     updateConfig((current) => ({
       ...current,
       template: {
         ...current.template,
-        tags: [...current.template.tags, value],
+        tags: [...current.template.tags, ...toAdd],
       },
     }));
+  }
+
+  function handleTagInputChange(value: string) {
+    if (!value.includes(",")) {
+      setTagInput(value);
+      return;
+    }
+    const parts = value.split(",");
+    const remaining = parts.pop() ?? "";
+    addTags(parts);
+    setTagInput(remaining);
+  }
+
+  function handleAddTag() {
+    const tags = tagInput
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    if (tags.length === 0) {
+      return;
+    }
+    addTags(tags);
     setTagInput("");
   }
 
@@ -148,233 +265,205 @@ export default function SettingsPage() {
     }));
   }
 
-  async function handleSave() {
-    if (!config) {
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-
-    const payload: AppConfig = {
-      ...config,
-      schedule: {
-        ...config.schedule,
-        startDate: startDateAuto ? "auto" : manualStartDate,
-        slots: config.schedule.slots.map((slot) => ({
-          ...slot,
-          weekday: slot.daily ? null : (slot.weekday ?? 0),
-        })),
-      },
-    };
-
-    try {
-      await settingsSet({ upload_dir: uploadDir || null });
-      await configSet(payload);
-      setMessage("設定を保存しました");
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   if (loading) {
     return (
-      <section className="panel">
-        <h2>設定</h2>
-        <p>読み込み中...</p>
-      </section>
+      <Paper p="md">
+        <Center py="lg">
+          <Loader />
+        </Center>
+      </Paper>
     );
   }
 
   if (!config) {
     return (
-      <section className="panel">
-        <h2>設定</h2>
-        {error ? <p className="error">{error}</p> : <p className="error">設定を読み込めませんでした</p>}
-      </section>
+      <Paper p="md">
+        <Alert color="red">{error ?? "設定を読み込めませんでした"}</Alert>
+      </Paper>
     );
   }
 
   return (
-    <section className="panel settings-panel">
-      <h2>設定</h2>
+    <Stack gap="lg">
+      {saving || message ? (
+        <Group justify="flex-end">
+          {saving ? (
+            <Text size="xs" c="dimmed">
+              保存中...
+            </Text>
+          ) : message ? (
+            <Text size="xs" c="green">
+              {message}
+            </Text>
+          ) : null}
+        </Group>
+      ) : null}
 
-      <div className="card">
-        <h3>一般</h3>
-        <label>
-          デフォルト動画フォルダ
-          <div className="inline-field">
-            <input value={uploadDir} onChange={(e) => setUploadDir(e.target.value)} />
-            <button type="button" onClick={handlePickDirectory}>
+      <Card withBorder padding="md" radius="md">
+        <Title order={3} mb="md">
+          一般
+        </Title>
+        <Stack gap="sm">
+          <Group align="flex-end" gap="sm" wrap="nowrap">
+            <TextInput
+              label="デフォルト動画フォルダ"
+              value={uploadDir}
+              onChange={(e) => setUploadDir(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <Button variant="outline" onClick={handlePickDirectory}>
               選択
-            </button>
-          </div>
-        </label>
-      </div>
+            </Button>
+          </Group>
+        </Stack>
+      </Card>
 
-      <div className="card">
-        <h3>メタデータテンプレート</h3>
-        <div className="form-grid">
-          <label>
-            タイトルテンプレート（任意）
-            <input
-              value={config.template.title ?? ""}
-              onChange={(e) =>
-                updateConfig((current) => ({
-                  ...current,
-                  template: {
-                    ...current.template,
-                    title: e.target.value || null,
-                  },
-                }))
-              }
-              placeholder="例: 【新曲】{{title}}"
-            />
-            <span className="field-hint">ファイル名は {"{{title}}"} に置き換わります</span>
-          </label>
+      <Card withBorder padding="md" radius="md">
+        <Title order={3} mb="md">
+          メタデータテンプレート
+        </Title>
+        <Stack gap="md">
+          <TextInput
+            label="タイトルテンプレート（任意）"
+            value={config.template.title ?? ""}
+            onChange={(e) =>
+              updateConfig((current) => ({
+                ...current,
+                template: {
+                  ...current.template,
+                  title: e.target.value || null,
+                },
+              }))
+            }
+            placeholder="例: 【新曲】{{title}}"
+            description='ファイル名は {"{{title}}"} に置き換わります'
+          />
 
-          <label>
-            説明文
-            <textarea
-              value={config.template.description}
-              onChange={(e) =>
-                updateConfig((current) => ({
-                  ...current,
-                  template: { ...current.template, description: e.target.value },
-                }))
-              }
-              rows={6}
-            />
-          </label>
+          <Textarea
+            label="説明文"
+            value={config.template.description}
+            onChange={(e) =>
+              updateConfig((current) => ({
+                ...current,
+                template: { ...current.template, description: e.target.value },
+              }))
+            }
+            rows={6}
+          />
 
-          <div>
-            <span className="field-label">タグ</span>
-            <div className="tag-input-row">
-              <input
+          <Stack gap="sm">
+            <Text size="sm" fw={500}>
+              タグ
+            </Text>
+            <Group align="flex-end" gap="sm">
+              <TextInput
+                flex={1}
                 value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
+                onChange={(e) => handleTagInputChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     handleAddTag();
                   }
                 }}
-                placeholder="タグを入力して Enter"
+                placeholder="タグを入力（カンマ区切り可）"
               />
-              <button type="button" onClick={handleAddTag}>
+              <Button variant="outline" onClick={handleAddTag}>
                 追加
-              </button>
-            </div>
-            <div className="tag-list">
+              </Button>
+            </Group>
+            <Group gap="xs">
               {config.template.tags.map((tag) => (
-                <span key={tag} className="tag-chip">
+                <Pill key={tag} withRemoveButton onRemove={() => handleRemoveTag(tag)}>
                   {tag}
-                  <button type="button" onClick={() => handleRemoveTag(tag)} aria-label={`${tag} を削除`}>
-                    ×
-                  </button>
-                </span>
+                </Pill>
               ))}
-            </div>
-          </div>
+            </Group>
+          </Stack>
 
-          <label>
-            カテゴリ
-            {categories.length > 0 ? (
-              <select
-                value={config.template.categoryId}
-                onChange={(e) =>
-                  updateConfig((current) => ({
-                    ...current,
-                    template: { ...current.template, categoryId: e.target.value },
-                  }))
-                }
-              >
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.title} ({category.id})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                value={config.template.categoryId}
-                onChange={(e) =>
-                  updateConfig((current) => ({
-                    ...current,
-                    template: { ...current.template, categoryId: e.target.value },
-                  }))
-                }
-              />
-            )}
-          </label>
-
-          <label>
-            デフォルト言語
-            <input
-              value={config.template.defaultLanguage}
+          {categories.length > 0 ? (
+            <NativeSelect
+              label="カテゴリ"
+              value={config.template.categoryId}
               onChange={(e) =>
                 updateConfig((current) => ({
                   ...current,
-                  template: { ...current.template, defaultLanguage: e.target.value },
+                  template: { ...current.template, categoryId: e.target.value },
                 }))
               }
-              placeholder="ja"
+              data={categories.map((category) => ({
+                value: category.id,
+                label: `${category.title} (${category.id})`,
+              }))}
             />
-          </label>
-        </div>
-      </div>
-
-      <div className="card">
-        <h3>公開スケジュール</h3>
-        <div className="form-grid">
-          <label>
-            タイムゾーン
-            <input
-              list="timezone-options"
-              value={config.schedule.timezone}
+          ) : (
+            <TextInput
+              label="カテゴリ"
+              value={config.template.categoryId}
               onChange={(e) =>
                 updateConfig((current) => ({
                   ...current,
-                  schedule: { ...current.schedule, timezone: e.target.value },
+                  template: { ...current.template, categoryId: e.target.value },
                 }))
               }
             />
-            <datalist id="timezone-options">
-              {TIMEZONE_OPTIONS.map((tz) => (
-                <option key={tz} value={tz} />
-              ))}
-            </datalist>
-          </label>
+          )}
 
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={startDateAuto}
-              onChange={(e) => setStartDateAuto(e.target.checked)}
-            />
-            最終公開日の翌日から自動設定（startDate: auto）
-          </label>
+          <TextInput
+            label="デフォルト言語"
+            value={config.template.defaultLanguage}
+            onChange={(e) =>
+              updateConfig((current) => ({
+                ...current,
+                template: { ...current.template, defaultLanguage: e.target.value },
+              }))
+            }
+            placeholder="ja"
+          />
+        </Stack>
+      </Card>
+
+      <Card withBorder padding="md" radius="md">
+        <Title order={3} mb="md">
+          公開スケジュール
+        </Title>
+        <Stack gap="md">
+          <Autocomplete
+            label="タイムゾーン"
+            value={config.schedule.timezone}
+            onChange={(value) =>
+              updateConfig((current) => ({
+                ...current,
+                schedule: { ...current.schedule, timezone: value },
+              }))
+            }
+            data={TIMEZONE_OPTIONS}
+          />
+
+          <Checkbox
+            label="最終公開日の翌日から自動設定"
+            checked={startDateAuto}
+            onChange={(e) => setStartDateAuto(e.currentTarget.checked)}
+          />
 
           {!startDateAuto ? (
-            <label>
-              開始日
-              <input
-                type="date"
-                value={manualStartDate}
-                onChange={(e) => setManualStartDate(e.target.value)}
-              />
-            </label>
+            <DateInput
+              label="開始日"
+              value={manualStartDate || null}
+              onChange={(value) => setManualStartDate(value ?? "")}
+              valueFormat="YYYY-MM-DD"
+            />
           ) : null}
 
-          <div>
-            <span className="field-label">公開スロット</span>
-            <div className="slot-list">
+          <Stack gap="sm">
+            <Text size="sm" fw={500}>
+              公開スロット
+            </Text>
+            <Stack gap="sm">
               {config.schedule.slots.map((slot, index) => (
-                <div key={index} className="slot-row">
-                  <select
+                <Group key={index} gap="sm" align="flex-end" wrap="wrap">
+                  <NativeSelect
+                    label={index === 0 ? "種別" : undefined}
                     value={slot.daily ? "daily" : "weekday"}
                     onChange={(e) =>
                       handleSlotChange(index, {
@@ -382,76 +471,74 @@ export default function SettingsPage() {
                         weekday: e.target.value === "daily" ? null : (slot.weekday ?? 0),
                       })
                     }
-                  >
-                    <option value="weekday">曜日指定</option>
-                    <option value="daily">毎日</option>
-                  </select>
+                    data={[
+                      { value: "weekday", label: "曜日指定" },
+                      { value: "daily", label: "毎日" },
+                    ]}
+                    w={140}
+                  />
 
                   {!slot.daily ? (
-                    <select
-                      value={slot.weekday ?? 0}
+                    <NativeSelect
+                      label={index === 0 ? "曜日" : undefined}
+                      value={String(slot.weekday ?? 0)}
                       onChange={(e) =>
                         handleSlotChange(index, { weekday: Number(e.target.value) })
                       }
-                    >
-                      {WEEKDAY_LABELS.map((label, weekday) => (
-                        <option key={weekday} value={weekday}>
-                          {label}曜日
-                        </option>
-                      ))}
-                    </select>
+                      data={WEEKDAY_LABELS.map((label, weekday) => ({
+                        value: String(weekday),
+                        label: `${label}曜日`,
+                      }))}
+                      w={120}
+                    />
                   ) : null}
 
-                  <input
+                  <TextInput
+                    label={index === 0 ? "時刻" : undefined}
                     type="time"
                     value={timeToInput(slot.time)}
                     onChange={(e) => handleSlotChange(index, { time: inputToTime(e.target.value) })}
+                    w={120}
                   />
 
-                  <button
-                    type="button"
+                  <Button
+                    variant="light"
+                    color="red"
                     onClick={() => handleRemoveSlot(index)}
                     disabled={config.schedule.slots.length <= 1}
                   >
                     削除
-                  </button>
-                </div>
+                  </Button>
+                </Group>
               ))}
-            </div>
-            <button type="button" className="slot-add" onClick={handleAddSlot}>
+            </Stack>
+            <Button variant="outline" onClick={handleAddSlot} mt="sm">
               スロットを追加
-            </button>
-          </div>
-        </div>
-      </div>
+            </Button>
+          </Stack>
+        </Stack>
+      </Card>
 
-      <div className="card">
-        <h3>アップロード既定値</h3>
-        <label>
-          デフォルト再生リスト ID / URL
-          <input
-            value={config.upload?.playlistId ?? ""}
-            onChange={(e) =>
-              updateConfig((current) => ({
-                ...current,
-                upload: {
-                  playlistId: e.target.value || null,
-                },
-              }))
-            }
-            placeholder="PL... または https://www.youtube.com/playlist?list=..."
-          />
-        </label>
-      </div>
+      <Card withBorder padding="md" radius="md">
+        <Title order={3} mb="md">
+          アップロード既定値
+        </Title>
+        <PlaylistPicker
+          value={config.upload?.playlistId ?? ""}
+          onChange={(value) =>
+            updateConfig((current) => ({
+              ...current,
+              upload: {
+                playlistId: value || null,
+              },
+            }))
+          }
+          authenticated={authenticated}
+          label="デフォルト再生リスト"
+        />
+      </Card>
 
-      <div className="actions">
-        <button type="button" onClick={handleSave} disabled={saving}>
-          {saving ? "保存中..." : "すべて保存"}
-        </button>
-      </div>
-
-      {message ? <p className="success">{message}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
-    </section>
+      {error ? <Alert color="red">{error}</Alert> : null}
+    </Stack>
   );
 }

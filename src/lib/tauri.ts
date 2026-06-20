@@ -11,6 +11,7 @@ import type {
   UploadProgressEvent,
   UploadSummary,
   VideoCategory,
+  PlaylistSummary,
 } from "../types";
 
 export async function initApp(): Promise<void> {
@@ -29,6 +30,10 @@ export async function authChannels(): Promise<AuthenticatedChannel[]> {
   return invoke("auth_channels");
 }
 
+export async function authLogout(): Promise<void> {
+  return invoke("auth_logout");
+}
+
 export async function videosList(limit: number): Promise<ChannelVideo[]> {
   return invoke("videos_list", { limit });
 }
@@ -43,6 +48,10 @@ export async function categoriesList(
     hl,
     includeAll,
   });
+}
+
+export async function playlistsList(): Promise<PlaylistSummary[]> {
+  return invoke("playlists_list");
 }
 
 export async function playlistsAdd(

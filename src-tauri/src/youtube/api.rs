@@ -7,7 +7,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
 
 use crate::youtube::auth::{load_oauth_config, load_token_file, save_token_file};
 use crate::youtube::types::{
-    AuthenticatedChannel, ChannelVideo, TokenFile, VideoCategory, VideoMetadata,
+    AuthenticatedChannel, ChannelVideo, PlaylistSummary, TokenFile, VideoCategory, VideoMetadata,
 };
 
 struct PlaylistVideoStub {
@@ -133,6 +133,24 @@ struct VideoCategorySnippet {
     assignable: Option<bool>,
 }
 
+#[derive(Debug, Deserialize)]
+struct PlaylistsListResponse {
+    items: Option<Vec<PlaylistItemSummary>>,
+    #[serde(rename = "nextPageToken")]
+    next_page_token: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PlaylistItemSummary {
+    id: Option<String>,
+    snippet: Option<PlaylistSummarySnippet>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PlaylistSummarySnippet {
+    title: Option<String>,
+}
+
 impl YouTubeClient {
     pub async fn new() -> anyhow::Result<Self> {
         let oauth_config = crate::youtube::auth::load_oauth_config()?;
@@ -143,10 +161,10 @@ impl YouTubeClient {
 
         let mut token = load_token_file()
             .await?
-            .ok_or_else(|| anyhow::anyhow!("Not authenticated. Sign in with Google first."))?;
+            .ok_or_else(|| anyhow::anyhow!("ログインしていません。Google でログインしてください。"))?;
 
         if token.refresh_token.is_none() {
-            anyhow::bail!("Not authenticated. Sign in with Google first.");
+            anyhow::bail!("ログインしていません。Google でログインしてください。");
         }
 
         if should_refresh(&token) {
@@ -203,8 +221,10 @@ impl YouTubeClient {
             return Ok(vec![]);
         }
 
-        let statuses = self
-            .fetch_video_statuses(&stubs.iter().map(|stub| stub.id.clone()).collect::<Vec<_>>())
+        let video_ids: Vec<String> = stubs.iter().map(|stub| stub.id.clone()).collect();
+        let statuses = self.fetch_video_statuses(&video_ids).await?;
+        let playlist_map = self
+            .build_video_playlist_map(&video_ids, Some(&uploads_playlist_id))
             .await?;
 
         Ok(stubs
@@ -212,16 +232,99 @@ impl YouTubeClient {
             .map(|stub| {
                 let status = statuses.get(&stub.id);
                 ChannelVideo {
-                    id: stub.id,
+                    id: stub.id.clone(),
                     title: stub.title,
                     uploaded_at: stub.uploaded_at,
                     privacy_status: status
                         .map(|value| value.privacy_status.clone())
                         .unwrap_or_else(|| "unknown".to_string()),
+                    playlists: playlist_map.get(&stub.id).cloned().unwrap_or_default(),
                     publish_at: status.and_then(|value| value.publish_at.clone()),
                 }
             })
             .collect())
+    }
+
+    async fn build_video_playlist_map(
+        &self,
+        video_ids: &[String],
+        exclude_playlist_id: Option<&str>,
+    ) -> anyhow::Result<std::collections::HashMap<String, Vec<String>>> {
+        use std::collections::{HashMap, HashSet};
+
+        let target_ids: HashSet<&str> = video_ids.iter().map(|id| id.as_str()).collect();
+        if target_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let mut map: HashMap<String, Vec<String>> = HashMap::new();
+        let my_playlists = self.list_my_playlists().await?;
+
+        for playlist in my_playlists {
+            if exclude_playlist_id == Some(playlist.id.as_str()) {
+                continue;
+            }
+
+            let contained_ids = self.list_all_playlist_video_ids(&playlist.id).await?;
+            for video_id in contained_ids {
+                if target_ids.contains(video_id.as_str()) {
+                    map.entry(video_id)
+                        .or_default()
+                        .push(playlist.title.clone());
+                }
+            }
+        }
+
+        for titles in map.values_mut() {
+            titles.sort();
+            titles.dedup();
+        }
+
+        Ok(map)
+    }
+
+    async fn list_all_playlist_video_ids(&self, playlist_id: &str) -> anyhow::Result<Vec<String>> {
+        let mut video_ids = Vec::new();
+        let mut page_token: Option<String> = None;
+
+        loop {
+            let mut query = vec![
+                ("part", "snippet".to_string()),
+                ("playlistId", playlist_id.to_string()),
+                ("maxResults", "50".to_string()),
+            ];
+            if let Some(token) = &page_token {
+                query.push(("pageToken", token.clone()));
+            }
+
+            let response = self
+                .http
+                .get("https://www.googleapis.com/youtube/v3/playlistItems")
+                .query(&query)
+                .bearer_auth(self.access_token().await?)
+                .send()
+                .await?
+                .error_for_status()?
+                .json::<PlaylistItemsResponse>()
+                .await?;
+
+            for item in response.items.unwrap_or_default() {
+                if let Some(video_id) = item
+                    .snippet
+                    .and_then(|snippet| snippet.resource_id)
+                    .and_then(|resource| resource.video_id)
+                {
+                    video_ids.push(video_id);
+                }
+            }
+
+            page_token = response.next_page_token;
+            if page_token.is_none() {
+                break;
+            }
+        }
+
+        Ok(video_ids)
     }
 
     async fn get_uploads_playlist_id(&self) -> anyhow::Result<String> {
@@ -340,6 +443,47 @@ impl YouTubeClient {
         }
 
         Ok(statuses)
+    }
+
+    pub async fn list_my_playlists(&self) -> anyhow::Result<Vec<PlaylistSummary>> {
+        let mut playlists = Vec::new();
+        let mut page_token: Option<String> = None;
+
+        loop {
+            let mut query = vec![
+                ("part", "snippet".to_string()),
+                ("mine", "true".to_string()),
+                ("maxResults", "50".to_string()),
+            ];
+            if let Some(token) = &page_token {
+                query.push(("pageToken", token.clone()));
+            }
+
+            let response = self
+                .http
+                .get("https://www.googleapis.com/youtube/v3/playlists")
+                .query(&query)
+                .bearer_auth(self.access_token().await?)
+                .send()
+                .await?
+                .error_for_status()?
+                .json::<PlaylistsListResponse>()
+                .await?;
+
+            for item in response.items.unwrap_or_default() {
+                if let (Some(id), Some(title)) = (item.id, item.snippet.and_then(|s| s.title)) {
+                    playlists.push(PlaylistSummary { id, title });
+                }
+            }
+
+            page_token = response.next_page_token;
+            if page_token.is_none() {
+                break;
+            }
+        }
+
+        playlists.sort_by(|a, b| a.title.cmp(&b.title));
+        Ok(playlists)
     }
 
     pub async fn list_video_categories(

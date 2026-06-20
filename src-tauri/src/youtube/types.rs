@@ -117,6 +117,8 @@ pub struct ChannelVideo {
     pub title: String,
     pub uploaded_at: String,
     pub privacy_status: String,
+    #[serde(default)]
+    pub playlists: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub publish_at: Option<String>,
 }
@@ -130,6 +132,12 @@ pub struct VideoCategory {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthenticatedChannel {
+    pub id: String,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistSummary {
     pub id: String,
     pub title: String,
 }

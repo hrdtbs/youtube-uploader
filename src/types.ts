@@ -3,6 +3,11 @@ export interface AuthenticatedChannel {
   title: string;
 }
 
+export interface PlaylistSummary {
+  id: string;
+  title: string;
+}
+
 export interface AuthStatus {
   authenticated: boolean;
   token_path: string;
@@ -17,6 +22,7 @@ export interface ChannelVideo {
   title: string;
   uploaded_at: string;
   privacy_status: string;
+  playlists: string[];
   publish_at?: string | null;
 }
 
