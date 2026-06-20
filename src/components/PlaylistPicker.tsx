@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { Autocomplete } from "@mantine/core";
-import { playlistsList } from "../lib/tauri";
-import type { PlaylistSummary } from "../types";
+import { useEffect, useState } from 'react';
+import { Autocomplete } from '@mantine/core';
+import { playlistsList } from '../lib/tauri';
+import type { PlaylistSummary } from '../types';
 
 interface Props {
   /** 保存・送信に使う再生リスト ID（または URL / 手入力） */
@@ -14,7 +14,7 @@ interface Props {
 
 function displayText(value: string, playlists: PlaylistSummary[]): string {
   if (!value) {
-    return "";
+    return '';
   }
   const match = playlists.find((playlist) => playlist.id === value);
   return match?.title ?? value;
@@ -23,7 +23,7 @@ function displayText(value: string, playlists: PlaylistSummary[]): string {
 function resolveInput(text: string, playlists: PlaylistSummary[]): string {
   const trimmed = text.trim();
   if (!trimmed) {
-    return "";
+    return '';
   }
   const byTitle = playlists.find((playlist) => playlist.title === trimmed);
   if (byTitle) {
@@ -40,8 +40,8 @@ export default function PlaylistPicker({
   value,
   onChange,
   authenticated,
-  label = "再生リスト",
-  placeholder = "再生リストを選択",
+  label = '再生リスト',
+  placeholder = '再生リストを選択',
 }: Props) {
   const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
   const [inputValue, setInputValue] = useState(value);

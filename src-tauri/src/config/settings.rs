@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::config::paths::{ensure_config_dir, settings_path};
 use crate::youtube::types::AppSettings;
 
@@ -50,8 +48,7 @@ pub fn normalize_playlist_id(value: &str) -> String {
     {
         return captures
             .get(1)
-            .map(|m| m.as_str().to_string())
-            .unwrap_or_else(|| trimmed.to_string());
+            .map_or_else(|| trimmed.to_string(), |m| m.as_str().to_string());
     }
     trimmed.to_string()
 }
@@ -76,8 +73,4 @@ pub async fn resolve_playlist_id(
         return validate_playlist_id(value);
     }
     anyhow::bail!("playlist ID is required.")
-}
-
-pub fn file_exists(path: &Path) -> bool {
-    path.exists()
 }

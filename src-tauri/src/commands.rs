@@ -6,17 +6,17 @@ use crate::config::app_config::{
     ensure_default_config, load_app_config_dto, load_config_yaml_text, save_app_config_dto,
     save_config_yaml_text, upload_preview, upload_run,
 };
-use crate::config::oauth_credentials::{
-    get_oauth_credentials_info, set_oauth_credentials_path,
-};
+use crate::config::oauth_credentials::{get_oauth_credentials_info, set_oauth_credentials_path};
 use crate::config::paths::{default_config_path, resolve_config_path};
 use crate::config::settings::{
     load_settings, resolve_playlist_id, resolve_upload_dir, save_settings,
 };
-use crate::youtube::auth::{get_auth_status, get_authorized_client, run_auth_login, run_auth_logout};
+use crate::youtube::auth::{
+    get_auth_status, get_authorized_client, run_auth_login, run_auth_logout,
+};
 use crate::youtube::types::{
-    AppConfigDto, AppSettings, AuthStatus, AuthenticatedChannel, ChannelVideo, OAuthCredentialsInfo,
-    PlaylistSummary, UploadPreviewItem, UploadSummary, VideoCategory,
+    AppConfigDto, AppSettings, AuthStatus, AuthenticatedChannel, ChannelVideo,
+    OAuthCredentialsInfo, PlaylistSummary, UploadPreviewItem, UploadSummary, VideoCategory,
 };
 
 #[tauri::command]
@@ -31,8 +31,13 @@ pub async fn auth_status() -> Result<AuthStatus, String> {
 
 #[tauri::command]
 pub async fn auth_channels() -> Result<Vec<AuthenticatedChannel>, String> {
-    let client = get_authorized_client().await.map_err(|error| error.to_string())?;
-    client.fetch_my_channels().await.map_err(|error| error.to_string())
+    let client = get_authorized_client()
+        .await
+        .map_err(|error| error.to_string())?;
+    client
+        .fetch_my_channels()
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -43,7 +48,9 @@ pub async fn auth_logout() -> Result<(), String> {
 #[tauri::command]
 pub async fn videos_list(limit: u32) -> Result<Vec<ChannelVideo>, String> {
     let limit = limit.clamp(1, 500) as usize;
-    let client = get_authorized_client().await.map_err(|error| error.to_string())?;
+    let client = get_authorized_client()
+        .await
+        .map_err(|error| error.to_string())?;
     client
         .list_channel_videos(limit)
         .await
@@ -61,7 +68,9 @@ pub async fn categories_list(
         return Err("地域コードは2文字の英字（例: JP、US）で指定してください。".to_string());
     }
 
-    let client = get_authorized_client().await.map_err(|error| error.to_string())?;
+    let client = get_authorized_client()
+        .await
+        .map_err(|error| error.to_string())?;
     let mut categories = client
         .list_video_categories(&region_code, hl.as_deref())
         .await
@@ -76,7 +85,9 @@ pub async fn categories_list(
 
 #[tauri::command]
 pub async fn playlists_list() -> Result<Vec<PlaylistSummary>, String> {
-    let client = get_authorized_client().await.map_err(|error| error.to_string())?;
+    let client = get_authorized_client()
+        .await
+        .map_err(|error| error.to_string())?;
     client
         .list_my_playlists()
         .await
@@ -111,12 +122,17 @@ pub async fn playlists_add(
         .map_err(|error| error.to_string())?;
     let playlist_id = resolve_playlist_id(
         playlist.as_deref(),
-        config.upload.as_ref().and_then(|value| value.playlist_id.as_deref()),
+        config
+            .upload
+            .as_ref()
+            .and_then(|value| value.playlist_id.as_deref()),
     )
     .await
     .map_err(|error| error.to_string())?;
 
-    let client = get_authorized_client().await.map_err(|error| error.to_string())?;
+    let client = get_authorized_client()
+        .await
+        .map_err(|error| error.to_string())?;
     let mut added = 0u32;
     let mut failed = 0u32;
 
@@ -220,9 +236,7 @@ pub async fn config_save(yaml: String) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn settings_get() -> Result<AppSettings, String> {
-    load_settings()
-        .await
-        .map_err(|error| error.to_string())
+    load_settings().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]

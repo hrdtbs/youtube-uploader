@@ -5,8 +5,8 @@ use serde::Deserialize;
 use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 
-use crate::config::paths::{ensure_config_dir, token_path, YOUTUBE_SCOPE};
 use crate::config::oauth_credentials::load_oauth_config;
+use crate::config::paths::{ensure_config_dir, token_path, YOUTUBE_SCOPE};
 use crate::youtube::api::YouTubeClient;
 use crate::youtube::types::{AuthStatus, AuthenticatedChannel, TokenFile};
 
@@ -61,7 +61,7 @@ pub async fn run_auth_login(app: tauri::AppHandle) -> anyhow::Result<Vec<Authent
     let oauth = load_oauth_config()?;
     let server = tiny_http::Server::http("127.0.0.1:0")
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-    let port = server.server_addr().to_ip().map(|addr| addr.port()).unwrap_or(0);
+    let port = server.server_addr().to_ip().map_or(0, |addr| addr.port());
     let redirect_uri = format!("http://127.0.0.1:{port}/");
 
     let auth_url = format!(
@@ -77,7 +77,11 @@ pub async fn run_auth_login(app: tauri::AppHandle) -> anyhow::Result<Vec<Authent
     let code_for_server = code.clone();
 
     std::thread::spawn(move || {
-        if let Some(request) = server.recv_timeout(std::time::Duration::from_secs(120)).ok().flatten() {
+        if let Some(request) = server
+            .recv_timeout(std::time::Duration::from_mins(2))
+            .ok()
+            .flatten()
+        {
             let url = request.url().to_string();
             let query = url.split('?').nth(1).unwrap_or("");
             let params: std::collections::HashMap<_, _> = query
@@ -91,7 +95,8 @@ pub async fn run_auth_login(app: tauri::AppHandle) -> anyhow::Result<Vec<Authent
             if let Some(auth_code) = params.get("code") {
                 let html = "<html><body><p>Authorization complete. You can close this window and return to the app.</p></body></html>";
                 let response = tiny_http::Response::from_string(html).with_header(
-                    tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap(),
+                    tiny_http::Header::from_bytes("Content-Type", "text/html; charset=utf-8")
+                        .unwrap(),
                 );
                 let _ = request.respond(response);
                 let mut guard = code_for_server.blocking_lock();
@@ -100,7 +105,7 @@ pub async fn run_auth_login(app: tauri::AppHandle) -> anyhow::Result<Vec<Authent
         }
     });
 
-    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(120);
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_mins(2);
     loop {
         if tokio::time::Instant::now() > deadline {
             anyhow::bail!("OAuth callback timed out. Try signing in again.");
@@ -138,9 +143,7 @@ pub async fn run_auth_login(app: tauri::AppHandle) -> anyhow::Result<Vec<Authent
         refresh_token: Some(refresh_token),
         scope: token_response.scope,
         token_type: token_response.token_type,
-        expiry_date: Some(
-            chrono::Utc::now().timestamp_millis() + token_response.expires_in * 1000,
-        ),
+        expiry_date: Some(chrono::Utc::now().timestamp_millis() + token_response.expires_in * 1000),
     };
 
     save_token_file(&token).await?;
@@ -189,8 +192,7 @@ pub async fn get_auth_status() -> AuthStatus {
 
     let access_token_expires = token.expiry_date.map(|value| {
         chrono::DateTime::<chrono::Utc>::from_timestamp_millis(value)
-            .map(|date| date.to_rfc3339())
-            .unwrap_or_else(|| value.to_string())
+            .map_or_else(|| value.to_string(), |date| date.to_rfc3339())
     });
 
     match get_authorized_client().await {

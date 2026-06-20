@@ -161,21 +161,12 @@ pub struct AuthStatus {
     pub message: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppSettings {
     #[serde(default)]
     pub upload_dir: Option<String>,
     #[serde(default, rename = "oauth_credentials_path")]
     pub oauth_credentials_path: Option<String>,
-}
-
-impl Default for AppSettings {
-    fn default() -> Self {
-        Self {
-            upload_dir: None,
-            oauth_credentials_path: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { Button, Stack, Text } from "@mantine/core";
-import { authLogin, authLogout } from "../lib/tauri";
-import { formatErrorMessage } from "../lib/labels";
-import type { AuthStatus } from "../types";
+import { useState } from 'react';
+import { Button, Stack, Text } from '@mantine/core';
+import { authLogin, authLogout } from '../lib/tauri';
+import { formatErrorMessage } from '../lib/labels';
+import type { AuthStatus } from '../types';
 
 interface Props {
   status: AuthStatus | null;
@@ -39,15 +39,14 @@ export default function AuthControls({ status, onUpdated }: Props) {
     }
   }
 
-  const channelLabel =
-    status?.channels.map((channel) => channel.title).join(", ") || null;
+  const channelLabel = status?.channels.map((channel) => channel.title).join(', ') || null;
 
   return (
     <Stack gap="xs" align="flex-end" maw={320}>
       {status?.authenticated ? (
         <>
           <Text size="sm" ta="right">
-            {channelLabel ?? "チャンネル情報なし"}
+            {channelLabel ?? 'チャンネル情報なし'}
           </Text>
           <Button variant="outline" onClick={handleLogout} loading={busy} disabled={busy}>
             ログアウト

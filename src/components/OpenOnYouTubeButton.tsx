@@ -1,5 +1,5 @@
-import { Button } from "@mantine/core";
-import { openVideoOnYouTube } from "../lib/youtube";
+import { Button } from '@mantine/core';
+import { openVideoOnYouTube } from '../lib/youtube';
 
 interface Props {
   videoId: string;

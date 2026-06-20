@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -10,14 +10,10 @@ import {
   Stack,
   Text,
   Title,
-} from "@mantine/core";
-import {
-  oauthCredentialsGet,
-  oauthCredentialsSet,
-  pickOAuthFile,
-} from "../lib/tauri";
-import { formatErrorMessage } from "../lib/labels";
-import type { OAuthCredentialsInfo } from "../types";
+} from '@mantine/core';
+import { oauthCredentialsGet, oauthCredentialsSet, pickOAuthFile } from '../lib/tauri';
+import { formatErrorMessage } from '../lib/labels';
+import type { OAuthCredentialsInfo } from '../types';
 
 interface Props {
   onAuthUpdated: () => Promise<void>;
@@ -60,7 +56,7 @@ export default function DevelopmentPage({ onAuthUpdated }: Props) {
       await oauthCredentialsSet(selected);
       await refreshInfo();
       await onAuthUpdated();
-      setMessage("資格情報を変更しました。再度 Google でログインしてください。");
+      setMessage('資格情報を変更しました。再度 Google でログインしてください。');
     } catch (err) {
       setError(formatErrorMessage(err));
     } finally {
@@ -76,7 +72,7 @@ export default function DevelopmentPage({ onAuthUpdated }: Props) {
       await oauthCredentialsSet(null);
       await refreshInfo();
       await onAuthUpdated();
-      setMessage("資格情報を削除しました。初期設定画面に戻るにはアプリを再読み込みしてください。");
+      setMessage('資格情報を削除しました。初期設定画面に戻るにはアプリを再読み込みしてください。');
     } catch (err) {
       setError(formatErrorMessage(err));
     } finally {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -16,8 +16,8 @@ import {
   Textarea,
   TextInput,
   Title,
-} from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+} from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import {
   categoriesList,
   configGet,
@@ -25,27 +25,27 @@ import {
   pickDirectory,
   settingsGet,
   settingsSet,
-} from "../lib/tauri";
-import PlaylistPicker from "../components/PlaylistPicker";
-import { formatErrorMessage } from "../lib/labels";
-import type { AppConfig, ScheduleSlotDef, VideoCategory } from "../types";
+} from '../lib/tauri';
+import PlaylistPicker from '../components/PlaylistPicker';
+import { formatErrorMessage } from '../lib/labels';
+import type { AppConfig, ScheduleSlotDef, VideoCategory } from '../types';
 
-const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
 const TIMEZONE_OPTIONS = [
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Asia/Shanghai",
-  "Asia/Singapore",
-  "Europe/London",
-  "Europe/Paris",
-  "America/New_York",
-  "America/Los_Angeles",
-  "UTC",
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Asia/Shanghai',
+  'Asia/Singapore',
+  'Europe/London',
+  'Europe/Paris',
+  'America/New_York',
+  'America/Los_Angeles',
+  'UTC',
 ];
 
 function defaultSlot(): ScheduleSlotDef {
-  return { daily: false, weekday: 3, time: "18:00" };
+  return { daily: false, weekday: 3, time: '18:00' };
 }
 
 function timeToInput(time: string): string {
@@ -65,7 +65,7 @@ function buildConfigPayload(
     ...config,
     schedule: {
       ...config.schedule,
-      startDate: startDateAuto ? "auto" : manualStartDate,
+      startDate: startDateAuto ? 'auto' : manualStartDate,
       slots: config.schedule.slots.map((slot) => ({
         ...slot,
         weekday: slot.daily ? null : (slot.weekday ?? 0),
@@ -77,11 +77,11 @@ function buildConfigPayload(
 const AUTO_SAVE_DELAY_MS = 500;
 
 export default function SettingsPage({ authenticated }: { authenticated: boolean }) {
-  const [uploadDir, setUploadDir] = useState("");
+  const [uploadDir, setUploadDir] = useState('');
   const [config, setConfig] = useState<AppConfig | null>(null);
-  const [tagInput, setTagInput] = useState("");
+  const [tagInput, setTagInput] = useState('');
   const [startDateAuto, setStartDateAuto] = useState(true);
-  const [manualStartDate, setManualStartDate] = useState("");
+  const [manualStartDate, setManualStartDate] = useState('');
   const [categories, setCategories] = useState<VideoCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -93,18 +93,15 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
   useEffect(() => {
     void (async () => {
       try {
-        const [settings, loadedConfig] = await Promise.all([
-          settingsGet(),
-          configGet(),
-        ]);
-        setUploadDir(settings.upload_dir ?? "");
+        const [settings, loadedConfig] = await Promise.all([settingsGet(), configGet()]);
+        setUploadDir(settings.upload_dir ?? '');
         setConfig(loadedConfig);
-        setStartDateAuto(loadedConfig.schedule.startDate === "auto");
-        if (loadedConfig.schedule.startDate !== "auto") {
+        setStartDateAuto(loadedConfig.schedule.startDate === 'auto');
+        if (loadedConfig.schedule.startDate !== 'auto') {
           setManualStartDate(loadedConfig.schedule.startDate);
         }
         try {
-          setCategories(await categoriesList("JP", "ja", false));
+          setCategories(await categoriesList('JP', 'ja', false));
         } catch {
           // カテゴリ取得失敗時は数値入力にフォールバック
         }
@@ -141,7 +138,7 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
             return;
           }
           setError(null);
-          setMessage("保存しました");
+          setMessage('保存しました');
         } catch (err) {
           if (version !== saveVersion.current) {
             return;
@@ -162,7 +159,7 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
   }, [config, uploadDir, startDateAuto, manualStartDate, loading]);
 
   async function handlePickDirectory() {
-    const selected = await pickDirectory("デフォルト動画フォルダ");
+    const selected = await pickDirectory('デフォルト動画フォルダ');
     if (selected) {
       setUploadDir(selected);
     }
@@ -198,26 +195,26 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
   }
 
   function handleTagInputChange(value: string) {
-    if (!value.includes(",")) {
+    if (!value.includes(',')) {
       setTagInput(value);
       return;
     }
-    const parts = value.split(",");
-    const remaining = parts.pop() ?? "";
+    const parts = value.split(',');
+    const remaining = parts.pop() ?? '';
     addTags(parts);
     setTagInput(remaining);
   }
 
   function handleAddTag() {
     const tags = tagInput
-      .split(",")
+      .split(',')
       .map((tag) => tag.trim())
       .filter(Boolean);
     if (tags.length === 0) {
       return;
     }
     addTags(tags);
-    setTagInput("");
+    setTagInput('');
   }
 
   function handleRemoveTag(tag: string) {
@@ -278,7 +275,7 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
   if (!config) {
     return (
       <Paper p="md">
-        <Alert color="red">{error ?? "設定を読み込めませんでした"}</Alert>
+        <Alert color="red">{error ?? '設定を読み込めませんでした'}</Alert>
       </Paper>
     );
   }
@@ -325,7 +322,7 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
         <Stack gap="md">
           <TextInput
             label="タイトルテンプレート（任意）"
-            value={config.template.title ?? ""}
+            value={config.template.title ?? ''}
             onChange={(e) =>
               updateConfig((current) => ({
                 ...current,
@@ -361,7 +358,7 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
                 value={tagInput}
                 onChange={(e) => handleTagInputChange(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
+                  if (e.key === 'Enter') {
                     e.preventDefault();
                     handleAddTag();
                   }
@@ -450,7 +447,7 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
             <DateInput
               label="開始日"
               value={manualStartDate || null}
-              onChange={(value) => setManualStartDate(value ?? "")}
+              onChange={(value) => setManualStartDate(value ?? '')}
               valueFormat="YYYY-MM-DD"
             />
           ) : null}
@@ -463,28 +460,26 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
               {config.schedule.slots.map((slot, index) => (
                 <Group key={index} gap="sm" align="flex-end" wrap="wrap">
                   <NativeSelect
-                    label={index === 0 ? "種別" : undefined}
-                    value={slot.daily ? "daily" : "weekday"}
+                    label={index === 0 ? '種別' : undefined}
+                    value={slot.daily ? 'daily' : 'weekday'}
                     onChange={(e) =>
                       handleSlotChange(index, {
-                        daily: e.target.value === "daily",
-                        weekday: e.target.value === "daily" ? null : (slot.weekday ?? 0),
+                        daily: e.target.value === 'daily',
+                        weekday: e.target.value === 'daily' ? null : (slot.weekday ?? 0),
                       })
                     }
                     data={[
-                      { value: "weekday", label: "曜日指定" },
-                      { value: "daily", label: "毎日" },
+                      { value: 'weekday', label: '曜日指定' },
+                      { value: 'daily', label: '毎日' },
                     ]}
                     w={140}
                   />
 
                   {!slot.daily ? (
                     <NativeSelect
-                      label={index === 0 ? "曜日" : undefined}
+                      label={index === 0 ? '曜日' : undefined}
                       value={String(slot.weekday ?? 0)}
-                      onChange={(e) =>
-                        handleSlotChange(index, { weekday: Number(e.target.value) })
-                      }
+                      onChange={(e) => handleSlotChange(index, { weekday: Number(e.target.value) })}
                       data={WEEKDAY_LABELS.map((label, weekday) => ({
                         value: String(weekday),
                         label: `${label}曜日`,
@@ -494,7 +489,7 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
                   ) : null}
 
                   <TextInput
-                    label={index === 0 ? "時刻" : undefined}
+                    label={index === 0 ? '時刻' : undefined}
                     type="time"
                     value={timeToInput(slot.time)}
                     onChange={(e) => handleSlotChange(index, { time: inputToTime(e.target.value) })}
@@ -524,7 +519,7 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
           アップロード既定値
         </Title>
         <PlaylistPicker
-          value={config.upload?.playlistId ?? ""}
+          value={config.upload?.playlistId ?? ''}
           onChange={(value) =>
             updateConfig((current) => ({
               ...current,

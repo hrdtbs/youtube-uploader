@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -12,32 +12,32 @@ import {
   Table,
   TextInput,
   Title,
-} from "@mantine/core";
+} from '@mantine/core';
 import {
   onUploadProgress,
   pickDirectory,
   settingsGet,
   uploadPreview,
   uploadRun,
-} from "../lib/tauri";
-import { formatErrorMessage } from "../lib/labels";
-import type { UploadPreviewItem, UploadProgressEvent } from "../types";
+} from '../lib/tauri';
+import { formatErrorMessage } from '../lib/labels';
+import type { UploadPreviewItem, UploadProgressEvent } from '../types';
 
-function logColor(kind: UploadProgressEvent["kind"]): string {
+function logColor(kind: UploadProgressEvent['kind']): string {
   switch (kind) {
-    case "error":
-      return "red";
-    case "success":
-      return "green";
-    case "warning":
-      return "yellow";
+    case 'error':
+      return 'red';
+    case 'success':
+      return 'green';
+    case 'warning':
+      return 'yellow';
     default:
-      return "gray";
+      return 'gray';
   }
 }
 
 export default function UploadPage() {
-  const [uploadDir, setUploadDir] = useState("");
+  const [uploadDir, setUploadDir] = useState('');
   const [recursive, setRecursive] = useState(false);
   const [force, setForce] = useState(false);
   const [delay, setDelay] = useState(10);
@@ -55,7 +55,7 @@ export default function UploadPage() {
   }, []);
 
   async function handlePickDirectory() {
-    const selected = await pickDirectory("動画フォルダを選択");
+    const selected = await pickDirectory('動画フォルダを選択');
     if (selected) {
       setUploadDir(selected);
     }

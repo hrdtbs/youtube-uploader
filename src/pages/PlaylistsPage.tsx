@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -12,20 +12,20 @@ import {
   Table,
   Text,
   VisuallyHidden,
-} from "@mantine/core";
-import PlaylistPicker from "../components/PlaylistPicker";
-import OpenOnYouTubeButton from "../components/OpenOnYouTubeButton";
-import { playlistsAdd, videosList } from "../lib/tauri";
-import { formatErrorMessage, privacyStatusLabel } from "../lib/labels";
-import { formatPlaylistNames } from "../lib/youtube";
-import type { ChannelVideo } from "../types";
+} from '@mantine/core';
+import PlaylistPicker from '../components/PlaylistPicker';
+import OpenOnYouTubeButton from '../components/OpenOnYouTubeButton';
+import { playlistsAdd, videosList } from '../lib/tauri';
+import { formatErrorMessage, privacyStatusLabel } from '../lib/labels';
+import { formatPlaylistNames } from '../lib/youtube';
+import type { ChannelVideo } from '../types';
 
 interface Props {
   authenticated: boolean;
 }
 
 export default function PlaylistsPage({ authenticated }: Props) {
-  const [playlist, setPlaylist] = useState("");
+  const [playlist, setPlaylist] = useState('');
   const [limit, setLimit] = useState(20);
   const [videos, setVideos] = useState<ChannelVideo[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -97,7 +97,11 @@ export default function PlaylistsPage({ authenticated }: Props) {
                 onChange={(value) => setLimit(Number(value) || 1)}
                 w={120}
               />
-              <Button onClick={() => void loadVideos()} loading={loadingVideos} disabled={loadingVideos}>
+              <Button
+                onClick={() => void loadVideos()}
+                loading={loadingVideos}
+                disabled={loadingVideos}
+              >
                 読み込み
               </Button>
             </Group>

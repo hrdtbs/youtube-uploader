@@ -12,7 +12,6 @@ struct SlotOccurrence {
 
 fn js_weekday_to_chrono(weekday: u8) -> Weekday {
     match weekday {
-        0 => Weekday::Sun,
         1 => Weekday::Mon,
         2 => Weekday::Tue,
         3 => Weekday::Wed,
@@ -26,13 +25,16 @@ fn js_weekday_to_chrono(weekday: u8) -> Weekday {
 fn sunday_week_start(date: DateTime<Tz>) -> DateTime<Tz> {
     let days_from_sunday = date.weekday().num_days_from_sunday();
     date.date_naive()
-        .checked_sub_days(chrono::Days::new(days_from_sunday as u64))
-        .map(|day| date.timezone().from_local_datetime(&day.and_hms_opt(0, 0, 0).unwrap()))
-        .and_then(|dt| dt.single())
+        .checked_sub_days(chrono::Days::new(u64::from(days_from_sunday)))
+        .map(|day| {
+            date.timezone()
+                .from_local_datetime(&day.and_hms_opt(0, 0, 0).unwrap())
+        })
+        .and_then(chrono::LocalResult::single)
         .unwrap_or(date)
 }
 
-fn parse_start_date(start_date: &str, timezone: &Tz) -> anyhow::Result<DateTime<Tz>> {
+fn parse_start_date(start_date: &str, timezone: Tz) -> anyhow::Result<DateTime<Tz>> {
     let naive = NaiveDate::parse_from_str(start_date, "%Y-%m-%d")
         .map_err(|_| anyhow::anyhow!("Invalid schedule.startDate: {start_date}"))?;
     timezone
@@ -43,11 +45,7 @@ fn parse_start_date(start_date: &str, timezone: &Tz) -> anyhow::Result<DateTime<
 
 fn sort_slots(schedule: &ScheduleConfig) -> Vec<crate::youtube::types::ScheduleSlot> {
     let mut slots = schedule.slots.clone();
-    slots.sort_by(|a, b| {
-        a.weekday
-            .cmp(&b.weekday)
-            .then_with(|| a.time.cmp(&b.time))
-    });
+    slots.sort_by(|a, b| a.weekday.cmp(&b.weekday).then_with(|| a.time.cmp(&b.time)));
     slots
 }
 
@@ -62,8 +60,8 @@ fn slot_occurrence_in_week(
     let hour: u32 = parts[0].parse().ok()?;
     let minute: u32 = parts[1].parse().ok()?;
     let target = js_weekday_to_chrono(slot.weekday);
-    let days_from_week_start = (target.num_days_from_sunday() as i64
-        - week_start_sunday.weekday().num_days_from_sunday() as i64
+    let days_from_week_start = (i64::from(target.num_days_from_sunday())
+        - i64::from(week_start_sunday.weekday().num_days_from_sunday())
         + 7)
         % 7;
 
@@ -82,13 +80,9 @@ fn slot_occurrence_in_week(
 
 fn generate_occurrences(schedule: &ScheduleConfig) -> Vec<SlotOccurrence> {
     let sorted = sort_slots(schedule);
-    let timezone: Tz = schedule
-        .timezone
-        .parse()
-        .unwrap_or(chrono_tz::UTC);
-    let start_date = parse_start_date(&schedule.start_date, &timezone).unwrap_or_else(|_| {
-        Utc::now().with_timezone(&timezone)
-    });
+    let timezone: Tz = schedule.timezone.parse().unwrap_or(chrono_tz::UTC);
+    let start_date = parse_start_date(&schedule.start_date, timezone)
+        .unwrap_or_else(|_| Utc::now().with_timezone(&timezone));
     let week_start = sunday_week_start(start_date);
     let mut results = Vec::new();
 
@@ -110,10 +104,7 @@ fn generate_occurrences(schedule: &ScheduleConfig) -> Vec<SlotOccurrence> {
 fn format_slot(slot: &SlotOccurrence, timezone: &str) -> ScheduledSlot {
     ScheduledSlot {
         publish_at_utc: slot.utc.to_rfc3339(),
-        publish_at_local: format!(
-            "{} ({timezone})",
-            slot.local.format("%Y-%m-%d %H:%M")
-        ),
+        publish_at_local: format!("{} ({timezone})", slot.local.format("%Y-%m-%d %H:%M")),
     }
 }
 
@@ -121,7 +112,7 @@ pub fn create_schedule_slots(
     schedule: &ScheduleConfig,
     count: usize,
 ) -> anyhow::Result<Vec<ScheduledSlot>> {
-    let timezone: Tz = schedule
+    let _timezone: Tz = schedule
         .timezone
         .parse()
         .map_err(|_| anyhow::anyhow!("Invalid schedule.timezone: {}", schedule.timezone))?;

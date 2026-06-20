@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -11,12 +11,12 @@ import {
   Table,
   Text,
   VisuallyHidden,
-} from "@mantine/core";
-import { videosList } from "../lib/tauri";
-import { formatErrorMessage, privacyStatusLabel } from "../lib/labels";
-import { formatPlaylistNames } from "../lib/youtube";
-import OpenOnYouTubeButton from "../components/OpenOnYouTubeButton";
-import type { ChannelVideo } from "../types";
+} from '@mantine/core';
+import { videosList } from '../lib/tauri';
+import { formatErrorMessage, privacyStatusLabel } from '../lib/labels';
+import { formatPlaylistNames } from '../lib/youtube';
+import OpenOnYouTubeButton from '../components/OpenOnYouTubeButton';
+import type { ChannelVideo } from '../types';
 
 interface Props {
   authenticated: boolean;
@@ -109,7 +109,7 @@ export default function VideosPage({ authenticated }: Props) {
                       <Table.Td>{formatPlaylistNames(video.playlists)}</Table.Td>
                       <Table.Td>{video.uploaded_at}</Table.Td>
                       <Table.Td>{privacyStatusLabel(video.privacy_status)}</Table.Td>
-                      <Table.Td>{video.publish_at ?? "-"}</Table.Td>
+                      <Table.Td>{video.publish_at ?? '-'}</Table.Td>
                       <Table.Td>
                         <OpenOnYouTubeButton videoId={video.id} title={video.title} />
                       </Table.Td>

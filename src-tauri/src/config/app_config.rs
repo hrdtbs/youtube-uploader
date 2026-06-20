@@ -51,7 +51,10 @@ pub async fn resolve_start_date(
     }
 
     if latest_utc.is_none() {
-        return Ok(Utc::now().with_timezone(&timezone).format("%Y-%m-%d").to_string());
+        return Ok(Utc::now()
+            .with_timezone(&timezone)
+            .format("%Y-%m-%d")
+            .to_string());
     }
 
     Ok(latest_utc
@@ -59,8 +62,15 @@ pub async fn resolve_start_date(
         .with_timezone(&timezone)
         .date_naive()
         .succ_opt()
-        .map(|date| date.format("%Y-%m-%d").to_string())
-        .unwrap_or_else(|| Utc::now().with_timezone(&timezone).format("%Y-%m-%d").to_string()))
+        .map_or_else(
+            || {
+                Utc::now()
+                    .with_timezone(&timezone)
+                    .format("%Y-%m-%d")
+                    .to_string()
+            },
+            |date| date.format("%Y-%m-%d").to_string(),
+        ))
 }
 
 fn effective_publish_at(
@@ -76,10 +86,7 @@ fn effective_publish_at(
     uploaded_at.to_string()
 }
 
-fn consider_latest(
-    latest_utc: Option<DateTime<Utc>>,
-    iso: &str,
-) -> Option<DateTime<Utc>> {
+fn consider_latest(latest_utc: Option<DateTime<Utc>>, iso: &str) -> Option<DateTime<Utc>> {
     if iso.is_empty() {
         return latest_utc;
     }
@@ -107,18 +114,16 @@ pub async fn ensure_default_config() -> anyhow::Result<()> {
 }
 
 pub async fn load_app_config(path: &Path) -> anyhow::Result<AppConfig> {
-    let raw = tokio::fs::read_to_string(path)
-        .await
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::NotFound {
-                anyhow::anyhow!("Config file not found: {}", path.display())
-            } else {
-                error.into()
-            }
-        })?;
+    let raw = tokio::fs::read_to_string(path).await.map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            anyhow::anyhow!("Config file not found: {}", path.display())
+        } else {
+            error.into()
+        }
+    })?;
 
     let parsed: serde_yaml::Value = serde_yaml::from_str(&raw)?;
-    validate_config(parsed)
+    validate_config(&parsed)
 }
 
 pub async fn save_app_config(path: &Path, config: &AppConfig) -> anyhow::Result<()> {
@@ -171,6 +176,7 @@ pub fn collapse_slots(slots: &[ScheduleSlot]) -> Vec<ScheduleSlotDef> {
     result
 }
 
+#[allow(dead_code)]
 pub fn expand_slot_defs(slots: &[ScheduleSlotDef]) -> anyhow::Result<Vec<ScheduleSlot>> {
     let time_pattern = regex::Regex::new(r"^([01]\d|2[0-3]):([0-5]\d)$")?;
     let mut yaml_slots = serde_yaml::Sequence::new();
@@ -181,37 +187,43 @@ pub fn expand_slot_defs(slots: &[ScheduleSlotDef]) -> anyhow::Result<Vec<Schedul
         }
 
         if slot.daily {
-            yaml_slots.push(serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter([
-                (
-                    serde_yaml::Value::String("daily".to_string()),
-                    serde_yaml::Value::Bool(true),
-                ),
-                (
-                    serde_yaml::Value::String("time".to_string()),
-                    serde_yaml::Value::String(slot.time.clone()),
-                ),
-            ])));
+            yaml_slots.push(serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter(
+                [
+                    (
+                        serde_yaml::Value::String("daily".to_string()),
+                        serde_yaml::Value::Bool(true),
+                    ),
+                    (
+                        serde_yaml::Value::String("time".to_string()),
+                        serde_yaml::Value::String(slot.time.clone()),
+                    ),
+                ],
+            )));
             continue;
         }
 
         let weekday = slot.weekday.ok_or_else(|| {
-            anyhow::anyhow!("schedule.slots[{index}]: weekday (0-6) is required when daily is false.")
+            anyhow::anyhow!(
+                "schedule.slots[{index}]: weekday (0-6) is required when daily is false."
+            )
         })?;
 
         if weekday > 6 {
             anyhow::bail!("schedule.slots[{index}].weekday must be 0-6 (0=Sunday).");
         }
 
-        yaml_slots.push(serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter([
-            (
-                serde_yaml::Value::String("weekday".to_string()),
-                serde_yaml::Value::Number(weekday.into()),
-            ),
-            (
-                serde_yaml::Value::String("time".to_string()),
-                serde_yaml::Value::String(slot.time.clone()),
-            ),
-        ])));
+        yaml_slots.push(serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter(
+            [
+                (
+                    serde_yaml::Value::String("weekday".to_string()),
+                    serde_yaml::Value::Number(weekday.into()),
+                ),
+                (
+                    serde_yaml::Value::String("time".to_string()),
+                    serde_yaml::Value::String(slot.time.clone()),
+                ),
+            ],
+        )));
     }
 
     parse_schedule_slots(&yaml_slots)
@@ -229,7 +241,7 @@ pub fn app_config_to_dto(config: &AppConfig) -> AppConfigDto {
     }
 }
 
-pub fn dto_to_yaml_value(dto: &AppConfigDto) -> anyhow::Result<serde_yaml::Value> {
+pub fn dto_to_yaml_value(dto: &AppConfigDto) -> serde_yaml::Value {
     let mut template_map = serde_yaml::Mapping::new();
     if let Some(title) = &dto.template.title {
         template_map.insert(
@@ -331,7 +343,7 @@ pub fn dto_to_yaml_value(dto: &AppConfigDto) -> anyhow::Result<serde_yaml::Value
         }
     }
 
-    Ok(serde_yaml::Value::Mapping(root))
+    serde_yaml::Value::Mapping(root)
 }
 
 pub async fn load_app_config_dto(path: &Path) -> anyhow::Result<AppConfigDto> {
@@ -340,8 +352,8 @@ pub async fn load_app_config_dto(path: &Path) -> anyhow::Result<AppConfigDto> {
 }
 
 pub async fn save_app_config_dto(path: &Path, dto: &AppConfigDto) -> anyhow::Result<AppConfig> {
-    let yaml_value = dto_to_yaml_value(dto)?;
-    let config = validate_config(yaml_value)?;
+    let yaml_value = dto_to_yaml_value(dto);
+    let config = validate_config(&yaml_value)?;
     save_app_config(path, &config).await?;
     Ok(config)
 }
@@ -355,12 +367,12 @@ pub async fn load_config_yaml_text(path: &Path) -> anyhow::Result<String> {
 
 pub async fn save_config_yaml_text(path: &Path, yaml: &str) -> anyhow::Result<AppConfig> {
     let parsed: serde_yaml::Value = serde_yaml::from_str(yaml)?;
-    let config = validate_config(parsed)?;
+    let config = validate_config(&parsed)?;
     tokio::fs::write(path, yaml).await?;
     Ok(config)
 }
 
-fn validate_config(raw: serde_yaml::Value) -> anyhow::Result<AppConfig> {
+fn validate_config(raw: &serde_yaml::Value) -> anyhow::Result<AppConfig> {
     let data = raw
         .as_mapping()
         .ok_or_else(|| anyhow::anyhow!("Config must be a YAML object."))?;
@@ -397,7 +409,9 @@ fn validate_config(raw: serde_yaml::Value) -> anyhow::Result<AppConfig> {
         .get("timezone")
         .and_then(|value| value.as_str())
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| anyhow::anyhow!("schedule.timezone is required (IANA name, e.g. Asia/Tokyo)."))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("schedule.timezone is required (IANA name, e.g. Asia/Tokyo).")
+        })?;
 
     let start_date = schedule_map
         .get("startDate")
@@ -405,7 +419,9 @@ fn validate_config(raw: serde_yaml::Value) -> anyhow::Result<AppConfig> {
         .and_then(|value| value.as_str())
         .ok_or_else(|| anyhow::anyhow!("schedule.startDate is required (YYYY-MM-DD or auto)."))?;
 
-    if start_date != START_DATE_AUTO && !regex::Regex::new(r"^\d{4}-\d{2}-\d{2}$")?.is_match(start_date) {
+    if start_date != START_DATE_AUTO
+        && !regex::Regex::new(r"^\d{4}-\d{2}-\d{2}$")?.is_match(start_date)
+    {
         anyhow::bail!("schedule.startDate must be YYYY-MM-DD or auto.");
     }
 
@@ -425,7 +441,10 @@ fn validate_config(raw: serde_yaml::Value) -> anyhow::Result<AppConfig> {
 
     let mut upload_config = None;
     if let Some(upload) = data.get("upload").and_then(|value| value.as_mapping()) {
-        if let Some(raw_playlist_id) = upload.get("playlistId").or_else(|| upload.get("playlist_id")) {
+        if let Some(raw_playlist_id) = upload
+            .get("playlistId")
+            .or_else(|| upload.get("playlist_id"))
+        {
             if let Some(value) = raw_playlist_id.as_str() {
                 let playlist_id = settings::validate_playlist_id(value)?;
                 upload_config = Some(crate::youtube::types::UploadConfig {
@@ -484,7 +503,9 @@ fn parse_schedule_slots(
         let time = slot_map
             .get("time")
             .and_then(|value| value.as_str())
-            .ok_or_else(|| anyhow::anyhow!("schedule.slots[{index}].time must be HH:mm (24-hour)."))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!("schedule.slots[{index}].time must be HH:mm (24-hour).")
+            })?;
 
         if !time_pattern.is_match(time) {
             anyhow::bail!("schedule.slots[{index}].time must be HH:mm (24-hour).");
@@ -492,7 +513,7 @@ fn parse_schedule_slots(
 
         let is_daily = slot_map
             .get("daily")
-            .and_then(|value| value.as_bool())
+            .and_then(serde_yaml::Value::as_bool)
             .unwrap_or(false);
         let has_weekday = slot_map.contains_key("weekday");
 
@@ -513,11 +534,15 @@ fn parse_schedule_slots(
             continue;
         }
 
-        let weekday = slot_map
-            .get("weekday")
-            .and_then(|value| value.as_u64())
-            .ok_or_else(|| anyhow::anyhow!("schedule.slots[{index}].weekday must be 0-6 (0=Sunday)."))?
-            as u8;
+        let weekday = u8::try_from(
+            slot_map
+                .get("weekday")
+                .and_then(serde_yaml::Value::as_u64)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("schedule.slots[{index}].weekday must be 0-6 (0=Sunday).")
+                })?,
+        )
+        .map_err(|_| anyhow::anyhow!("schedule.slots[{index}].weekday must be 0-6 (0=Sunday)."))?;
 
         if weekday > 6 {
             anyhow::bail!("schedule.slots[{index}].weekday must be 0-6 (0=Sunday).");
@@ -565,13 +590,17 @@ pub async fn upload_preview(
     }
 
     let slots = schedule::create_schedule_slots(&config.schedule, pending.len())?;
-    let playlist_id = config.upload.as_ref().and_then(|value| value.playlist_id.clone());
+    let playlist_id = config
+        .upload
+        .as_ref()
+        .and_then(|value| value.playlist_id.clone());
 
     Ok(pending
         .into_iter()
-        .zip(slots.into_iter())
+        .zip(slots)
         .map(|(video, slot)| {
-            let metadata = templates::build_metadata(Path::new(&video.absolute_path), &config.template);
+            let metadata =
+                templates::build_metadata(Path::new(&video.absolute_path), &config.template);
             UploadPreviewItem {
                 relative_path: video.relative_path,
                 title: metadata.title,
@@ -588,6 +617,7 @@ use std::path::PathBuf;
 
 use tauri::{AppHandle, Emitter};
 
+#[allow(clippy::too_many_lines)]
 pub async fn upload_run(
     app: &AppHandle,
     upload_dir: &str,
@@ -616,8 +646,10 @@ pub async fn upload_run(
             .collect()
     };
 
-    let skipped = (video_files::list_video_files(upload_path, recursive)?.len() as u32)
-        .saturating_sub(pending.len() as u32);
+    let total_videos = video_files::list_video_files(upload_path, recursive)?.len();
+    let skipped = u32::try_from(total_videos)
+        .unwrap_or(u32::MAX)
+        .saturating_sub(u32::try_from(pending.len()).unwrap_or(u32::MAX));
 
     if pending.is_empty() {
         return Ok(UploadSummary {
@@ -635,7 +667,10 @@ pub async fn upload_run(
     }
 
     let slots = schedule::create_schedule_slots(&config.schedule, pending.len())?;
-    let playlist_id = config.upload.as_ref().and_then(|value| value.playlist_id.clone());
+    let playlist_id = config
+        .upload
+        .as_ref()
+        .and_then(|value| value.playlist_id.clone());
 
     let mut summary = UploadSummary {
         uploaded: 0,
@@ -643,7 +678,7 @@ pub async fn upload_run(
         failed: 0,
     };
 
-    for (video, slot) in pending.into_iter().zip(slots.into_iter()) {
+    for (video, slot) in pending.into_iter().zip(slots) {
         let metadata = templates::build_metadata(Path::new(&video.absolute_path), &config.template);
         emit_progress(
             app,
@@ -682,9 +717,7 @@ pub async fn upload_run(
                             UploadProgressEvent {
                                 kind: "warning".to_string(),
                                 relative_path: Some(video.relative_path.clone()),
-                                message: format!(
-                                    "Uploaded but failed to add to playlist: {error}"
-                                ),
+                                message: format!("Uploaded but failed to add to playlist: {error}"),
                                 video_id: Some(video_id.clone()),
                             },
                         );

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use walkdir::WalkDir;
 
@@ -12,9 +12,7 @@ pub struct VideoFile {
 
 fn is_video_file(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
-    VIDEO_EXTENSIONS
-        .iter()
-        .any(|ext| lower.ends_with(ext))
+    VIDEO_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
 }
 
 pub fn list_video_files(root_dir: &Path, recursive: bool) -> anyhow::Result<Vec<VideoFile>> {

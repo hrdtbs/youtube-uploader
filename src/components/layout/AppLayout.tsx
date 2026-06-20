@@ -1,14 +1,14 @@
-import { Box, Container, Group, Title } from "@mantine/core";
-import { Link, useLocation } from "react-router-dom";
-import AuthControls from "../AuthControls";
-import type { AuthStatus } from "../../types";
+import { Box, Container, Group, Title } from '@mantine/core';
+import { Link, useLocation } from 'react-router-dom';
+import AuthControls from '../AuthControls';
+import type { AuthStatus } from '../../types';
 
 const navItems = [
-  { to: "/upload", label: "アップロード" },
-  { to: "/videos", label: "動画一覧" },
-  { to: "/playlists", label: "再生リスト" },
-  { to: "/settings", label: "設定" },
-  { to: "/dev", label: "開発" },
+  { to: '/upload', label: 'アップロード' },
+  { to: '/videos', label: '動画一覧' },
+  { to: '/playlists', label: '再生リスト' },
+  { to: '/settings', label: '設定' },
+  { to: '/dev', label: '開発' },
 ];
 
 interface Props {
@@ -29,7 +29,7 @@ export default function AppLayout({ status, onAuthUpdated, children }: Props) {
         bg="white"
         style={{
           zIndex: 100,
-          borderBottom: "1px solid var(--mantine-color-gray-3)",
+          borderBottom: '1px solid var(--mantine-color-gray-3)',
         }}
       >
         <Container size="lg" py="md">
@@ -44,12 +44,12 @@ export default function AppLayout({ status, onAuthUpdated, children }: Props) {
                       key={item.to}
                       to={item.to}
                       style={{
-                        textDecoration: "none",
-                        color: active ? "white" : "var(--mantine-color-gray-7)",
-                        background: active ? "var(--mantine-color-dark-7)" : "transparent",
-                        padding: "0.35rem 0.75rem",
-                        borderRadius: "var(--mantine-radius-xl)",
-                        fontSize: "var(--mantine-font-size-sm)",
+                        textDecoration: 'none',
+                        color: active ? 'white' : 'var(--mantine-color-gray-7)',
+                        background: active ? 'var(--mantine-color-dark-7)' : 'transparent',
+                        padding: '0.35rem 0.75rem',
+                        borderRadius: 'var(--mantine-radius-xl)',
+                        fontSize: 'var(--mantine-font-size-sm)',
                         fontWeight: active ? 600 : 400,
                       }}
                     >

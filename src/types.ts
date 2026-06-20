@@ -62,7 +62,7 @@ export interface AppSettings {
 export interface OAuthCredentialsInfo {
   customPath?: string | null;
   effectivePath: string;
-  source: "user" | string;
+  source: 'user' | string;
   clientId: string;
 }
 

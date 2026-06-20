@@ -1,17 +1,7 @@
-import { useState } from "react";
-import {
-  Alert,
-  Button,
-  Card,
-  Center,
-  Code,
-  List,
-  Stack,
-  Text,
-  Title,
-} from "@mantine/core";
-import { oauthCredentialsSet, pickOAuthFile } from "../lib/tauri";
-import { formatErrorMessage } from "../lib/labels";
+import { useState } from 'react';
+import { Alert, Button, Card, Center, Code, List, Stack, Text, Title } from '@mantine/core';
+import { oauthCredentialsSet, pickOAuthFile } from '../lib/tauri';
+import { formatErrorMessage } from '../lib/labels';
 
 interface Props {
   onConfigured: () => Promise<void>;

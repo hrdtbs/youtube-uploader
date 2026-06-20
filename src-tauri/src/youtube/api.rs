@@ -25,7 +25,6 @@ struct VideoStatusInfo {
 pub struct YouTubeClient {
     http: Client,
     token: TokenFile,
-    oauth: OAuthCredentials,
 }
 
 #[derive(Clone)]
@@ -160,9 +159,9 @@ impl YouTubeClient {
             client_secret: oauth_config.client_secret,
         };
 
-        let mut token = load_token_file()
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("ログインしていません。Google でログインしてください。"))?;
+        let mut token = load_token_file().await?.ok_or_else(|| {
+            anyhow::anyhow!("ログインしていません。Google でログインしてください。")
+        })?;
 
         if token.refresh_token.is_none() {
             anyhow::bail!("ログインしていません。Google でログインしてください。");
@@ -176,11 +175,10 @@ impl YouTubeClient {
         Ok(Self {
             http: Client::new(),
             token,
-            oauth,
         })
     }
 
-    async fn access_token(&self) -> anyhow::Result<String> {
+    fn access_token(&self) -> anyhow::Result<String> {
         self.token
             .access_token
             .clone()
@@ -192,7 +190,7 @@ impl YouTubeClient {
             .http
             .get("https://www.googleapis.com/youtube/v3/channels")
             .query(&[("part", "snippet"), ("mine", "true")])
-            .bearer_auth(self.access_token().await?)
+            .bearer_auth(self.access_token()?)
             .send()
             .await?
             .error_for_status()?
@@ -236,9 +234,10 @@ impl YouTubeClient {
                     id: stub.id.clone(),
                     title: stub.title,
                     uploaded_at: stub.uploaded_at,
-                    privacy_status: status
-                        .map(|value| value.privacy_status.clone())
-                        .unwrap_or_else(|| "unknown".to_string()),
+                    privacy_status: status.map_or_else(
+                        || "unknown".to_string(),
+                        |value| value.privacy_status.clone(),
+                    ),
                     playlists: playlist_map.get(&stub.id).cloned().unwrap_or_default(),
                     publish_at: status.and_then(|value| value.publish_at.clone()),
                 }
@@ -253,7 +252,7 @@ impl YouTubeClient {
     ) -> anyhow::Result<std::collections::HashMap<String, Vec<String>>> {
         use std::collections::{HashMap, HashSet};
 
-        let target_ids: HashSet<&str> = video_ids.iter().map(|id| id.as_str()).collect();
+        let target_ids: HashSet<&str> = video_ids.iter().map(std::string::String::as_str).collect();
         if target_ids.is_empty() {
             return Ok(HashMap::new());
         }
@@ -302,7 +301,7 @@ impl YouTubeClient {
                 .http
                 .get("https://www.googleapis.com/youtube/v3/playlistItems")
                 .query(&query)
-                .bearer_auth(self.access_token().await?)
+                .bearer_auth(self.access_token()?)
                 .send()
                 .await?
                 .error_for_status()?
@@ -333,7 +332,7 @@ impl YouTubeClient {
             .http
             .get("https://www.googleapis.com/youtube/v3/channels")
             .query(&[("part", "contentDetails"), ("mine", "true")])
-            .bearer_auth(self.access_token().await?)
+            .bearer_auth(self.access_token()?)
             .send()
             .await?
             .error_for_status()?
@@ -346,9 +345,7 @@ impl YouTubeClient {
             .and_then(|item| item.content_details)
             .and_then(|details| details.related_playlists)
             .and_then(|playlists| playlists.uploads)
-            .ok_or_else(|| {
-                anyhow::anyhow!("No channel associated with the current token.")
-            })
+            .ok_or_else(|| anyhow::anyhow!("No channel associated with the current token."))
     }
 
     async fn list_playlist_video_stubs(
@@ -374,7 +371,7 @@ impl YouTubeClient {
                 .http
                 .get("https://www.googleapis.com/youtube/v3/playlistItems")
                 .query(&query)
-                .bearer_auth(self.access_token().await?)
+                .bearer_auth(self.access_token()?)
                 .send()
                 .await?
                 .error_for_status()?
@@ -382,9 +379,8 @@ impl YouTubeClient {
                 .await?;
 
             for item in response.items.unwrap_or_default() {
-                let snippet = match item.snippet {
-                    Some(value) => value,
-                    None => continue,
+                let Some(snippet) = item.snippet else {
+                    continue;
                 };
                 let video_id = snippet.resource_id.and_then(|value| value.video_id);
                 let title = snippet.title;
@@ -421,7 +417,7 @@ impl YouTubeClient {
                 .http
                 .get("https://www.googleapis.com/youtube/v3/videos")
                 .query(&[("part", "status"), ("id", &chunk.join(","))])
-                .bearer_auth(self.access_token().await?)
+                .bearer_auth(self.access_token()?)
                 .send()
                 .await?
                 .error_for_status()?
@@ -464,7 +460,7 @@ impl YouTubeClient {
                 .http
                 .get("https://www.googleapis.com/youtube/v3/playlists")
                 .query(&query)
-                .bearer_auth(self.access_token().await?)
+                .bearer_auth(self.access_token()?)
                 .send()
                 .await?
                 .error_for_status()?
@@ -504,7 +500,7 @@ impl YouTubeClient {
             .http
             .get("https://www.googleapis.com/youtube/v3/videoCategories")
             .query(&query)
-            .bearer_auth(self.access_token().await?)
+            .bearer_auth(self.access_token()?)
             .send()
             .await?
             .error_for_status()?
@@ -540,27 +536,29 @@ impl YouTubeClient {
         }
 
         #[derive(serde::Serialize)]
+        #[serde(rename_all = "camelCase")]
         struct Snippet<'a> {
-            playlistId: &'a str,
-            resourceId: ResourceId<'a>,
+            playlist_id: &'a str,
+            resource_id: ResourceId<'a>,
         }
 
         #[derive(serde::Serialize)]
+        #[serde(rename_all = "camelCase")]
         struct ResourceId<'a> {
             kind: &'static str,
-            videoId: &'a str,
+            video_id: &'a str,
         }
 
         self.http
             .post("https://www.googleapis.com/youtube/v3/playlistItems")
             .query(&[("part", "snippet")])
-            .bearer_auth(self.access_token().await?)
+            .bearer_auth(self.access_token()?)
             .json(&Body {
                 snippet: Snippet {
-                    playlistId: playlist_id,
-                    resourceId: ResourceId {
+                    playlist_id,
+                    resource_id: ResourceId {
                         kind: "youtube#video",
-                        videoId: video_id,
+                        video_id,
                     },
                 },
             })
@@ -584,23 +582,25 @@ impl YouTubeClient {
         #[derive(serde::Serialize)]
         struct RequestBody<'a> {
             snippet: Snippet<'a>,
-            status: Status<'a>,
+            status: UploadStatus<'a>,
         }
 
         #[derive(serde::Serialize)]
+        #[serde(rename_all = "camelCase")]
         struct Snippet<'a> {
             title: &'a str,
             description: &'a str,
             tags: &'a [String],
-            categoryId: &'a str,
-            defaultLanguage: &'a str,
+            category_id: &'a str,
+            default_language: &'a str,
         }
 
         #[derive(serde::Serialize)]
-        struct Status<'a> {
-            privacyStatus: &'static str,
-            publishAt: &'a str,
-            selfDeclaredMadeForKids: bool,
+        #[serde(rename_all = "camelCase")]
+        struct UploadStatus<'a> {
+            privacy_status: &'static str,
+            publish_at: &'a str,
+            self_declared_made_for_kids: bool,
         }
 
         let body = RequestBody {
@@ -608,13 +608,13 @@ impl YouTubeClient {
                 title: &metadata.title,
                 description: &metadata.description,
                 tags: &metadata.tags,
-                categoryId: &metadata.category_id,
-                defaultLanguage: &metadata.default_language,
+                category_id: &metadata.category_id,
+                default_language: &metadata.default_language,
             },
-            status: Status {
-                privacyStatus: "private",
-                publishAt: publish_at_utc,
-                selfDeclaredMadeForKids: false,
+            status: UploadStatus {
+                privacy_status: "private",
+                publish_at: publish_at_utc,
+                self_declared_made_for_kids: false,
             },
         };
 
@@ -622,7 +622,7 @@ impl YouTubeClient {
             .http
             .post("https://www.googleapis.com/upload/youtube/v3/videos")
             .query(&[("uploadType", "resumable"), ("part", "snippet,status")])
-            .bearer_auth(self.access_token().await?)
+            .bearer_auth(self.access_token()?)
             .header("X-Upload-Content-Type", "video/*")
             .json(&body)
             .send()
@@ -642,10 +642,11 @@ impl YouTubeClient {
 
         let mut uploaded = 0u64;
         let chunk_size = 8 * 1024 * 1024;
-        let mut buffer = vec![0u8; chunk_size as usize];
+        let mut buffer = vec![0u8; usize::try_from(chunk_size).unwrap_or(usize::MAX)];
 
         while uploaded < total_size {
-            let to_read = std::cmp::min(chunk_size, total_size - uploaded) as usize;
+            let to_read = usize::try_from(std::cmp::min(chunk_size, total_size - uploaded))
+                .unwrap_or(usize::MAX);
             let read = file.read(&mut buffer[..to_read]).await?;
             if read == 0 {
                 break;
@@ -655,26 +656,18 @@ impl YouTubeClient {
             let end = uploaded + read as u64 - 1;
             let content_range = format!("bytes {start}-{end}/{total_size}");
 
-            let response = if end + 1 >= total_size {
-                self.http
-                    .put(&upload_url)
-                    .header("Content-Length", read.to_string())
-                    .header("Content-Range", content_range)
-                    .body(buffer[..read].to_vec())
-                    .send()
-                    .await?
-            } else {
-                self.http
-                    .put(&upload_url)
-                    .header("Content-Length", read.to_string())
-                    .header("Content-Range", content_range)
-                    .body(buffer[..read].to_vec())
-                    .send()
-                    .await?
-            };
+            let response = self
+                .http
+                .put(&upload_url)
+                .header("Content-Length", read.to_string())
+                .header("Content-Range", content_range)
+                .body(buffer[..read].to_vec())
+                .send()
+                .await?;
 
             uploaded += read as u64;
-            let percent = ((uploaded as f64 / total_size as f64) * 100.0) as u32;
+            let percent =
+                u32::try_from((uploaded.saturating_mul(100)) / total_size.max(1)).unwrap_or(100);
             on_progress(format!("Upload progress: {percent}%"));
 
             if response.status().is_success() {
@@ -735,8 +728,6 @@ async fn refresh_access_token(
         refresh_token: token.refresh_token.clone(),
         scope: response.scope.or_else(|| token.scope.clone()),
         token_type: response.token_type.or_else(|| token.token_type.clone()),
-        expiry_date: Some(
-            chrono::Utc::now().timestamp_millis() + response.expires_in * 1000,
-        ),
+        expiry_date: Some(chrono::Utc::now().timestamp_millis() + response.expires_in * 1000),
     })
 }
