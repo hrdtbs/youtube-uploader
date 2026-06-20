@@ -45,10 +45,10 @@ export default function PlaylistPicker({
 }: Props) {
   const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
   const [inputValue, setInputValue] = useState(value);
+  const [prevSync, setPrevSync] = useState({ value, playlistCount: 0 });
 
   useEffect(() => {
     if (!authenticated) {
-      setPlaylists([]);
       return;
     }
     void playlistsList()
@@ -56,13 +56,15 @@ export default function PlaylistPicker({
       .catch(() => setPlaylists([]));
   }, [authenticated]);
 
-  useEffect(() => {
-    setInputValue(displayText(value, playlists));
-  }, [value, playlists]);
+  const effectivePlaylists = authenticated ? playlists : [];
+  if (value !== prevSync.value || effectivePlaylists.length !== prevSync.playlistCount) {
+    setPrevSync({ value, playlistCount: effectivePlaylists.length });
+    setInputValue(displayText(value, effectivePlaylists));
+  }
 
   function handleChange(text: string) {
     setInputValue(text);
-    onChange(resolveInput(text, playlists));
+    onChange(resolveInput(text, effectivePlaylists));
   }
 
   return (
@@ -71,7 +73,7 @@ export default function PlaylistPicker({
       placeholder={placeholder}
       value={inputValue}
       onChange={handleChange}
-      data={playlists.map((playlist) => playlist.title)}
+      data={effectivePlaylists.map((playlist) => playlist.title)}
       clearable
     />
   );
