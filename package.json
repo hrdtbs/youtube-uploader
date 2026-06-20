@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:pinned-deps",
     "check:pinned-deps": "node scripts/check-pinned-deps.mjs",
-    "version:bump": "tauri version"
+    "version:bump": "tauri version",
+    "prepare": "lefthook install"
   },
   "dependencies": {
     "@mantine/core": "9.3.2",
@@ -40,10 +41,11 @@
     "eslint": "9.39.4",
     "eslint-plugin-react-hooks": "5.2.0",
     "eslint-plugin-react-refresh": "0.4.26",
+    "lefthook": "2.1.9",
     "postcss": "8.5.15",
-    "prettier": "3.8.4",
     "postcss-preset-mantine": "1.18.0",
     "postcss-simple-vars": "7.0.1",
+    "prettier": "3.8.4",
     "typescript": "5.9.3",
     "typescript-eslint": "8.61.1",
     "vite": "6.4.3"
