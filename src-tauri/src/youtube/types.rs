@@ -165,10 +165,26 @@ pub struct AuthStatus {
 pub struct AppSettings {
     #[serde(default)]
     pub upload_dir: Option<String>,
+    #[serde(default, rename = "oauth_credentials_path")]
+    pub oauth_credentials_path: Option<String>,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
-        Self { upload_dir: None }
+        Self {
+            upload_dir: None,
+            oauth_credentials_path: None,
+        }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OAuthCredentialsInfo {
+    #[serde(rename = "customPath")]
+    pub custom_path: Option<String>,
+    #[serde(rename = "effectivePath")]
+    pub effective_path: String,
+    pub source: String,
+    #[serde(rename = "clientId")]
+    pub client_id: String,
 }

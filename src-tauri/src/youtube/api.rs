@@ -5,7 +5,8 @@ use serde::Deserialize;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
 
-use crate::youtube::auth::{load_oauth_config, load_token_file, save_token_file};
+use crate::config::oauth_credentials::load_oauth_config;
+use crate::youtube::auth::{load_token_file, save_token_file};
 use crate::youtube::types::{
     AuthenticatedChannel, ChannelVideo, PlaylistSummary, TokenFile, VideoCategory, VideoMetadata,
 };
@@ -153,7 +154,7 @@ struct PlaylistSummarySnippet {
 
 impl YouTubeClient {
     pub async fn new() -> anyhow::Result<Self> {
-        let oauth_config = crate::youtube::auth::load_oauth_config()?;
+        let oauth_config = load_oauth_config()?;
         let oauth = OAuthCredentials {
             client_id: oauth_config.client_id,
             client_secret: oauth_config.client_secret,

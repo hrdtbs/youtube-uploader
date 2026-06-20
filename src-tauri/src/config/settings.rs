@@ -3,6 +3,14 @@ use std::path::Path;
 use crate::config::paths::{ensure_config_dir, settings_path};
 use crate::youtube::types::AppSettings;
 
+pub fn load_settings_sync() -> AppSettings {
+    match std::fs::read_to_string(settings_path()) {
+        Ok(raw) => serde_json::from_str(&raw).unwrap_or_default(),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => AppSettings::default(),
+        Err(_) => AppSettings::default(),
+    }
+}
+
 pub async fn load_settings() -> anyhow::Result<AppSettings> {
     let _ = ensure_config_dir().await?;
     match tokio::fs::read_to_string(settings_path()).await {

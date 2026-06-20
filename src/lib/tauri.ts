@@ -12,6 +12,7 @@ import type {
   UploadSummary,
   VideoCategory,
   PlaylistSummary,
+  OAuthCredentialsInfo,
 } from "../types";
 
 export async function initApp(): Promise<void> {
@@ -101,11 +102,31 @@ export async function settingsSet(settings: AppSettings): Promise<void> {
   return invoke("settings_set", { settings });
 }
 
+export async function oauthCredentialsGet(): Promise<OAuthCredentialsInfo | null> {
+  return invoke("oauth_credentials_get");
+}
+
+export async function oauthCredentialsSet(path: string | null): Promise<void> {
+  return invoke("oauth_credentials_set", { path });
+}
+
 export async function pickDirectory(title: string): Promise<string | null> {
   const selected = await open({
     directory: true,
     multiple: false,
     title,
+  });
+  if (typeof selected === "string") {
+    return selected;
+  }
+  return null;
+}
+
+export async function pickOAuthFile(): Promise<string | null> {
+  const selected = await open({
+    multiple: false,
+    title: "OAuth 資格情報 (oauth.json) を選択",
+    filters: [{ name: "JSON", extensions: ["json"] }],
   });
   if (typeof selected === "string") {
     return selected;

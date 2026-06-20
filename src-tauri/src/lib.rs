@@ -25,6 +25,8 @@ pub fn run() {
             commands::config_save,
             commands::settings_get,
             commands::settings_set,
+            commands::oauth_credentials_get,
+            commands::oauth_credentials_set,
             commands::init_app,
         ])
         .run(tauri::generate_context!())

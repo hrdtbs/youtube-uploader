@@ -56,6 +56,14 @@ export interface UploadProgressEvent {
 
 export interface AppSettings {
   upload_dir?: string | null;
+  oauth_credentials_path?: string | null;
+}
+
+export interface OAuthCredentialsInfo {
+  customPath?: string | null;
+  effectivePath: string;
+  source: "user" | string;
+  clientId: string;
 }
 
 export interface TemplateConfig {

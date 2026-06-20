@@ -6,14 +6,17 @@ use crate::config::app_config::{
     ensure_default_config, load_app_config_dto, load_config_yaml_text, save_app_config_dto,
     save_config_yaml_text, upload_preview, upload_run,
 };
+use crate::config::oauth_credentials::{
+    get_oauth_credentials_info, set_oauth_credentials_path,
+};
 use crate::config::paths::{default_config_path, resolve_config_path};
 use crate::config::settings::{
     load_settings, resolve_playlist_id, resolve_upload_dir, save_settings,
 };
 use crate::youtube::auth::{get_auth_status, get_authorized_client, run_auth_login, run_auth_logout};
 use crate::youtube::types::{
-    AppConfigDto, AppSettings, AuthStatus, AuthenticatedChannel, ChannelVideo, PlaylistSummary,
-    UploadPreviewItem, UploadSummary, VideoCategory,
+    AppConfigDto, AppSettings, AuthStatus, AuthenticatedChannel, ChannelVideo, OAuthCredentialsInfo,
+    PlaylistSummary, UploadPreviewItem, UploadSummary, VideoCategory,
 };
 
 #[tauri::command]
@@ -225,6 +228,18 @@ pub async fn settings_get() -> Result<AppSettings, String> {
 #[tauri::command]
 pub async fn settings_set(settings: AppSettings) -> Result<(), String> {
     save_settings(&settings)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn oauth_credentials_get() -> Result<Option<OAuthCredentialsInfo>, String> {
+    get_oauth_credentials_info().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn oauth_credentials_set(path: Option<String>) -> Result<(), String> {
+    set_oauth_credentials_path(path)
         .await
         .map_err(|error| error.to_string())
 }

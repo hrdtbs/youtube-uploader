@@ -5,15 +5,10 @@ use serde::Deserialize;
 use tauri_plugin_opener::OpenerExt;
 use tokio::sync::Mutex;
 
-use crate::config::paths::{ensure_config_dir, oauth_resource_path, token_path, YOUTUBE_SCOPE};
+use crate::config::paths::{ensure_config_dir, token_path, YOUTUBE_SCOPE};
+use crate::config::oauth_credentials::load_oauth_config;
 use crate::youtube::api::YouTubeClient;
 use crate::youtube::types::{AuthStatus, AuthenticatedChannel, TokenFile};
-
-#[derive(Debug, Clone)]
-pub struct OAuthConfig {
-    pub client_id: String,
-    pub client_secret: String,
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum AuthError {
@@ -25,48 +20,6 @@ impl From<anyhow::Error> for AuthError {
     fn from(value: anyhow::Error) -> Self {
         Self::Message(value.to_string())
     }
-}
-
-#[derive(Debug, Deserialize)]
-struct ClientSecretInstalled {
-    client_id: String,
-    client_secret: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct ClientSecretFile {
-    installed: Option<ClientSecretInstalled>,
-    web: Option<ClientSecretInstalled>,
-}
-
-pub fn load_oauth_config() -> anyhow::Result<OAuthConfig> {
-    let candidates = [
-        oauth_resource_path(),
-        std::path::PathBuf::from("src-tauri/resources/oauth.json"),
-    ];
-
-    for path in candidates {
-        if path.exists() {
-            let raw = std::fs::read_to_string(&path)?;
-            return parse_oauth_config(&raw);
-        }
-    }
-
-    anyhow::bail!(
-        "OAuth credentials not found. Copy oauth.json.example to src-tauri/resources/oauth.json and set your Google Cloud Desktop OAuth client."
-    )
-}
-
-fn parse_oauth_config(raw: &str) -> anyhow::Result<OAuthConfig> {
-    let data: ClientSecretFile = serde_json::from_str(raw)?;
-    let source = data.installed.or(data.web).ok_or_else(|| {
-        anyhow::anyhow!("Invalid OAuth credentials file. Expected installed or web OAuth credentials.")
-    })?;
-
-    Ok(OAuthConfig {
-        client_id: source.client_id,
-        client_secret: source.client_secret,
-    })
 }
 
 pub async fn load_token_file() -> anyhow::Result<Option<TokenFile>> {

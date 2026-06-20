@@ -1,16 +1,19 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Center, Loader } from "@mantine/core";
-import { authStatus, initApp } from "./lib/tauri";
+import { authStatus, initApp, oauthCredentialsGet } from "./lib/tauri";
 import type { AuthStatus } from "./types";
 import AppLayout from "./components/layout/AppLayout";
 import UploadPage from "./pages/UploadPage";
 import VideosPage from "./pages/VideosPage";
 import PlaylistsPage from "./pages/PlaylistsPage";
 import SettingsPage from "./pages/SettingsPage";
+import DevelopmentPage from "./pages/DevelopmentPage";
+import OAuthSetupPage from "./pages/OAuthSetupPage";
 
 export default function App() {
   const [status, setStatus] = useState<AuthStatus | null>(null);
+  const [oauthConfigured, setOauthConfigured] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const authenticated = status?.authenticated ?? false;
 
@@ -19,10 +22,15 @@ export default function App() {
     setStatus(next);
   }
 
+  async function refreshOAuthConfigured() {
+    const info = await oauthCredentialsGet();
+    setOauthConfigured(info !== null);
+  }
+
   useEffect(() => {
     void (async () => {
       await initApp();
-      await refreshStatus();
+      await Promise.all([refreshStatus(), refreshOAuthConfigured()]);
       setLoading(false);
     })();
   }, []);
@@ -32,6 +40,17 @@ export default function App() {
       <Center h="100vh" bg="gray.0">
         <Loader />
       </Center>
+    );
+  }
+
+  if (!oauthConfigured) {
+    return (
+      <OAuthSetupPage
+        onConfigured={async () => {
+          await refreshOAuthConfigured();
+          await refreshStatus();
+        }}
+      />
     );
   }
 
@@ -51,6 +70,17 @@ export default function App() {
         <Route
           path="/settings"
           element={<SettingsPage authenticated={authenticated} />}
+        />
+        <Route
+          path="/dev"
+          element={
+            <DevelopmentPage
+              onAuthUpdated={async () => {
+                await refreshOAuthConfigured();
+                await refreshStatus();
+              }}
+            />
+          }
         />
         <Route path="*" element={<Navigate to="/upload" replace />} />
       </Routes>

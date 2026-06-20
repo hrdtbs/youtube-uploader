@@ -8,6 +8,7 @@ const navItems = [
   { to: "/videos", label: "動画一覧" },
   { to: "/playlists", label: "再生リスト" },
   { to: "/settings", label: "設定" },
+  { to: "/dev", label: "開発" },
 ];
 
 interface Props {

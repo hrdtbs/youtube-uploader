@@ -5,6 +5,7 @@ pub const CONFIG_FILENAME: &str = "config.yaml";
 pub const TOKEN_FILENAME: &str = "token.json";
 pub const INDEX_FILENAME: &str = ".youtube-uploader-index.json";
 pub const SETTINGS_FILENAME: &str = "settings.json";
+pub const OAUTH_FILENAME: &str = "oauth.json";
 
 pub const YOUTUBE_SCOPE: &str = "https://www.googleapis.com/auth/youtube.force-ssl";
 
@@ -43,8 +44,8 @@ pub async fn ensure_config_dir() -> anyhow::Result<PathBuf> {
     Ok(dir)
 }
 
-pub fn oauth_resource_path() -> PathBuf {
-    PathBuf::from("resources/oauth.json")
+pub fn default_oauth_credentials_path() -> PathBuf {
+    config_dir().join(OAUTH_FILENAME)
 }
 
 pub async fn resolve_config_path(upload_dir: &Path, explicit: Option<&Path>) -> PathBuf {
