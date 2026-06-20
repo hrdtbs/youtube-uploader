@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use tauri::AppHandle;
 
 use crate::config::app_config::{
-    ensure_default_config, load_config_yaml_text, save_config_yaml_text, upload_preview, upload_run,
+    ensure_default_config, load_app_config_dto, load_config_yaml_text, save_app_config_dto,
+    save_config_yaml_text, upload_preview, upload_run,
 };
 use crate::config::paths::{default_config_path, resolve_config_path};
 use crate::config::settings::{
@@ -11,8 +12,8 @@ use crate::config::settings::{
 };
 use crate::youtube::auth::{get_auth_status, get_authorized_client, run_auth_login};
 use crate::youtube::types::{
-    AppSettings, AuthStatus, AuthenticatedChannel, ChannelVideo, UploadPreviewItem, UploadSummary,
-    VideoCategory,
+    AppConfigDto, AppSettings, AuthStatus, AuthenticatedChannel, ChannelVideo, UploadPreviewItem,
+    UploadSummary, VideoCategory,
 };
 
 #[tauri::command]
@@ -156,6 +157,27 @@ pub async fn upload_run_cmd(
     )
     .await
     .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn config_get() -> Result<AppConfigDto, String> {
+    ensure_default_config()
+        .await
+        .map_err(|error| error.to_string())?;
+    load_app_config_dto(&default_config_path())
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn config_set(config: AppConfigDto) -> Result<(), String> {
+    ensure_default_config()
+        .await
+        .map_err(|error| error.to_string())?;
+    save_app_config_dto(&default_config_path(), &config)
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]

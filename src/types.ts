@@ -51,3 +51,33 @@ export interface UploadProgressEvent {
 export interface AppSettings {
   upload_dir?: string | null;
 }
+
+export interface TemplateConfig {
+  title?: string | null;
+  description: string;
+  tags: string[];
+  categoryId: string;
+  defaultLanguage: string;
+}
+
+export interface ScheduleSlotDef {
+  daily: boolean;
+  weekday?: number | null;
+  time: string;
+}
+
+export interface ScheduleConfig {
+  timezone: string;
+  startDate: string;
+  slots: ScheduleSlotDef[];
+}
+
+export interface UploadConfig {
+  playlistId?: string | null;
+}
+
+export interface AppConfig {
+  template: TemplateConfig;
+  schedule: ScheduleConfig;
+  upload?: UploadConfig | null;
+}

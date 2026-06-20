@@ -11,7 +11,8 @@ use crate::config::templates;
 use crate::config::video_files;
 use crate::youtube::api::YouTubeClient;
 use crate::youtube::types::{
-    AppConfig, UploadPreviewItem, UploadProgressEvent, UploadSummary,
+    AppConfig, AppConfigDto, ScheduleSlot, ScheduleSlotDef, UploadPreviewItem, UploadProgressEvent,
+    UploadSummary,
 };
 
 pub const START_DATE_AUTO: &str = "auto";
@@ -127,6 +128,222 @@ pub async fn save_app_config(path: &Path, config: &AppConfig) -> anyhow::Result<
     let yaml = serde_yaml::to_string(config)?;
     tokio::fs::write(path, yaml).await?;
     Ok(())
+}
+
+pub fn collapse_slots(slots: &[ScheduleSlot]) -> Vec<ScheduleSlotDef> {
+    use std::collections::HashMap;
+
+    let mut by_time: HashMap<String, Vec<u8>> = HashMap::new();
+    for slot in slots {
+        by_time
+            .entry(slot.time.clone())
+            .or_default()
+            .push(slot.weekday);
+    }
+
+    let mut result = Vec::new();
+    let mut times: Vec<_> = by_time.keys().cloned().collect();
+    times.sort();
+
+    for time in times {
+        let mut weekdays = by_time.remove(&time).unwrap_or_default();
+        weekdays.sort_unstable();
+        weekdays.dedup();
+
+        let all_days = (0..=6u8).all(|day| weekdays.contains(&day));
+        if all_days && weekdays.len() == 7 {
+            result.push(ScheduleSlotDef {
+                daily: true,
+                weekday: None,
+                time,
+            });
+        } else {
+            for weekday in weekdays {
+                result.push(ScheduleSlotDef {
+                    daily: false,
+                    weekday: Some(weekday),
+                    time: time.clone(),
+                });
+            }
+        }
+    }
+
+    result
+}
+
+pub fn expand_slot_defs(slots: &[ScheduleSlotDef]) -> anyhow::Result<Vec<ScheduleSlot>> {
+    let time_pattern = regex::Regex::new(r"^([01]\d|2[0-3]):([0-5]\d)$")?;
+    let mut yaml_slots = serde_yaml::Sequence::new();
+
+    for (index, slot) in slots.iter().enumerate() {
+        if !time_pattern.is_match(&slot.time) {
+            anyhow::bail!("schedule.slots[{index}].time must be HH:mm (24-hour).");
+        }
+
+        if slot.daily {
+            yaml_slots.push(serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter([
+                (
+                    serde_yaml::Value::String("daily".to_string()),
+                    serde_yaml::Value::Bool(true),
+                ),
+                (
+                    serde_yaml::Value::String("time".to_string()),
+                    serde_yaml::Value::String(slot.time.clone()),
+                ),
+            ])));
+            continue;
+        }
+
+        let weekday = slot.weekday.ok_or_else(|| {
+            anyhow::anyhow!("schedule.slots[{index}]: weekday (0-6) is required when daily is false.")
+        })?;
+
+        if weekday > 6 {
+            anyhow::bail!("schedule.slots[{index}].weekday must be 0-6 (0=Sunday).");
+        }
+
+        yaml_slots.push(serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter([
+            (
+                serde_yaml::Value::String("weekday".to_string()),
+                serde_yaml::Value::Number(weekday.into()),
+            ),
+            (
+                serde_yaml::Value::String("time".to_string()),
+                serde_yaml::Value::String(slot.time.clone()),
+            ),
+        ])));
+    }
+
+    parse_schedule_slots(&yaml_slots)
+}
+
+pub fn app_config_to_dto(config: &AppConfig) -> AppConfigDto {
+    AppConfigDto {
+        template: config.template.clone(),
+        schedule: crate::youtube::types::ScheduleConfigDto {
+            timezone: config.schedule.timezone.clone(),
+            start_date: config.schedule.start_date.clone(),
+            slots: collapse_slots(&config.schedule.slots),
+        },
+        upload: config.upload.clone(),
+    }
+}
+
+pub fn dto_to_yaml_value(dto: &AppConfigDto) -> anyhow::Result<serde_yaml::Value> {
+    let mut template_map = serde_yaml::Mapping::new();
+    if let Some(title) = &dto.template.title {
+        template_map.insert(
+            serde_yaml::Value::String("title".to_string()),
+            serde_yaml::Value::String(title.clone()),
+        );
+    }
+    template_map.insert(
+        serde_yaml::Value::String("description".to_string()),
+        serde_yaml::Value::String(dto.template.description.clone()),
+    );
+    template_map.insert(
+        serde_yaml::Value::String("tags".to_string()),
+        serde_yaml::Value::Sequence(
+            dto.template
+                .tags
+                .iter()
+                .map(|tag| serde_yaml::Value::String(tag.clone()))
+                .collect(),
+        ),
+    );
+    template_map.insert(
+        serde_yaml::Value::String("categoryId".to_string()),
+        serde_yaml::Value::String(dto.template.category_id.clone()),
+    );
+    template_map.insert(
+        serde_yaml::Value::String("defaultLanguage".to_string()),
+        serde_yaml::Value::String(dto.template.default_language.clone()),
+    );
+
+    let mut schedule_map = serde_yaml::Mapping::new();
+    schedule_map.insert(
+        serde_yaml::Value::String("timezone".to_string()),
+        serde_yaml::Value::String(dto.schedule.timezone.clone()),
+    );
+    schedule_map.insert(
+        serde_yaml::Value::String("startDate".to_string()),
+        serde_yaml::Value::String(dto.schedule.start_date.clone()),
+    );
+
+    let slot_seq: serde_yaml::Sequence = dto
+        .schedule
+        .slots
+        .iter()
+        .map(|slot| {
+            if slot.daily {
+                serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter([
+                    (
+                        serde_yaml::Value::String("daily".to_string()),
+                        serde_yaml::Value::Bool(true),
+                    ),
+                    (
+                        serde_yaml::Value::String("time".to_string()),
+                        serde_yaml::Value::String(slot.time.clone()),
+                    ),
+                ]))
+            } else {
+                serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter([
+                    (
+                        serde_yaml::Value::String("weekday".to_string()),
+                        serde_yaml::Value::Number(slot.weekday.unwrap_or(0).into()),
+                    ),
+                    (
+                        serde_yaml::Value::String("time".to_string()),
+                        serde_yaml::Value::String(slot.time.clone()),
+                    ),
+                ]))
+            }
+        })
+        .collect();
+    schedule_map.insert(
+        serde_yaml::Value::String("slots".to_string()),
+        serde_yaml::Value::Sequence(slot_seq),
+    );
+
+    let mut root = serde_yaml::Mapping::new();
+    root.insert(
+        serde_yaml::Value::String("template".to_string()),
+        serde_yaml::Value::Mapping(template_map),
+    );
+    root.insert(
+        serde_yaml::Value::String("schedule".to_string()),
+        serde_yaml::Value::Mapping(schedule_map),
+    );
+
+    if let Some(upload) = &dto.upload {
+        if let Some(playlist_id) = &upload.playlist_id {
+            if !playlist_id.trim().is_empty() {
+                let mut upload_map = serde_yaml::Mapping::new();
+                upload_map.insert(
+                    serde_yaml::Value::String("playlistId".to_string()),
+                    serde_yaml::Value::String(playlist_id.trim().to_string()),
+                );
+                root.insert(
+                    serde_yaml::Value::String("upload".to_string()),
+                    serde_yaml::Value::Mapping(upload_map),
+                );
+            }
+        }
+    }
+
+    Ok(serde_yaml::Value::Mapping(root))
+}
+
+pub async fn load_app_config_dto(path: &Path) -> anyhow::Result<AppConfigDto> {
+    let config = load_app_config(path).await?;
+    Ok(app_config_to_dto(&config))
+}
+
+pub async fn save_app_config_dto(path: &Path, dto: &AppConfigDto) -> anyhow::Result<AppConfig> {
+    let yaml_value = dto_to_yaml_value(dto)?;
+    let config = validate_config(yaml_value)?;
+    save_app_config(path, &config).await?;
+    Ok(config)
 }
 
 pub async fn load_config_yaml_text(path: &Path) -> anyhow::Result<String> {

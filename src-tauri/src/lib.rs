@@ -17,6 +17,8 @@ pub fn run() {
             commands::playlists_add,
             commands::upload_preview_cmd,
             commands::upload_run_cmd,
+            commands::config_get,
+            commands::config_set,
             commands::config_load,
             commands::config_save,
             commands::settings_get,

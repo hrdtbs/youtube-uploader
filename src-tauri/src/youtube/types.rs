@@ -27,6 +27,21 @@ pub struct ScheduleSlot {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduleSlotDef {
+    pub daily: bool,
+    pub weekday: Option<u8>,
+    pub time: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduleConfigDto {
+    pub timezone: String,
+    #[serde(rename = "startDate")]
+    pub start_date: String,
+    pub slots: Vec<ScheduleSlotDef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScheduleConfig {
     pub timezone: String,
     #[serde(rename = "startDate")]
@@ -44,6 +59,14 @@ pub struct UploadConfig {
 pub struct AppConfig {
     pub template: TemplateConfig,
     pub schedule: ScheduleConfig,
+    #[serde(default)]
+    pub upload: Option<UploadConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppConfigDto {
+    pub template: TemplateConfig,
+    pub schedule: ScheduleConfigDto,
     #[serde(default)]
     pub upload: Option<UploadConfig>,
 }

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
+  AppConfig,
   AppSettings,
   AuthStatus,
   AuthenticatedChannel,
@@ -75,12 +76,12 @@ export async function uploadRun(options: {
   return invoke("upload_run_cmd", options);
 }
 
-export async function configLoad(): Promise<string> {
-  return invoke("config_load");
+export async function configGet(): Promise<AppConfig> {
+  return invoke("config_get");
 }
 
-export async function configSave(yaml: string): Promise<string> {
-  return invoke("config_save", { yaml });
+export async function configSet(config: AppConfig): Promise<void> {
+  return invoke("config_set", { config });
 }
 
 export async function settingsGet(): Promise<AppSettings> {
