@@ -1,0 +1,18 @@
+template:
+  description: |
+    {{title}} をお楽しみください。
+
+    チャンネル登録・高評価お願いします。
+    #music #original
+  tags:
+    - music
+    - original
+  categoryId: "10"
+  defaultLanguage: ja
+
+schedule:
+  timezone: Asia/Tokyo
+  startDate: auto
+  slots:
+    - weekday: 3
+      time: "18:00"

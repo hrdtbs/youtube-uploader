@@ -1,0 +1,53 @@
+export interface AuthenticatedChannel {
+  id: string;
+  title: string;
+}
+
+export interface AuthStatus {
+  authenticated: boolean;
+  token_path: string;
+  access_token_expires?: string | null;
+  refresh_token_present: boolean;
+  channels: AuthenticatedChannel[];
+  message?: string | null;
+}
+
+export interface ChannelVideo {
+  id: string;
+  title: string;
+  uploaded_at: string;
+  privacy_status: string;
+  publish_at?: string | null;
+}
+
+export interface VideoCategory {
+  id: string;
+  title: string;
+  assignable: boolean;
+}
+
+export interface UploadPreviewItem {
+  relative_path: string;
+  title: string;
+  description: string;
+  publish_at_local: string;
+  publish_at_utc: string;
+  playlist_id?: string | null;
+}
+
+export interface UploadSummary {
+  uploaded: number;
+  skipped: number;
+  failed: number;
+}
+
+export interface UploadProgressEvent {
+  kind: string;
+  relative_path?: string | null;
+  message: string;
+  video_id?: string | null;
+}
+
+export interface AppSettings {
+  upload_dir?: string | null;
+}
