@@ -1,4 +1,4 @@
-name: Dependabot auto-merge
+name: Auto-merge
 
 on:
   pull_request:
@@ -10,9 +10,12 @@ permissions:
 
 jobs:
   dependabot:
-    name: Enable auto-merge
+    name: Enable auto-merge (Dependabot)
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    if: |
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.base.ref == 'main'
     steps:
       - name: Dependabot metadata
         id: metadata
@@ -24,6 +27,20 @@ jobs:
         if: |
           contains(steps.metadata.outputs.update-type, 'semver-patch') ||
           contains(steps.metadata.outputs.update-type, 'semver-minor')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  owner:
+    name: Enable auto-merge (owner)
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.user.login == 'hrdtbs' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.base.ref == 'main'
+    steps:
+      - name: Enable auto-merge
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
