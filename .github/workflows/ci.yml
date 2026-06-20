@@ -41,7 +41,7 @@ jobs:
 
   lint-rust:
     name: Lint Rust
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     defaults:
       run:
         working-directory: src-tauri
