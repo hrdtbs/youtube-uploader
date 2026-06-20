@@ -1,6 +1,7 @@
 {
   "name": "youtube-uploader",
   "private": true,
+  "packageManager": "pnpm@11.0.3",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
@@ -13,7 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check",
     "version:bump": "tauri version"
   },
   "dependencies": {
