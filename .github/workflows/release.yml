@@ -30,6 +30,36 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Set version from tag
+        id: version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          node scripts/sync-app-version.mjs "$VERSION"
+
+      - name: Prepare release notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = "${{ steps.version.outputs.version }}"
+          $notesPath = "release-notes.md"
+
+          $notes = node scripts/extract-changelog.mjs $version 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            $notes = gh api "repos/${{ github.repository }}/releases/generate-notes" `
+              -X POST `
+              -f tag_name=$tag `
+              -f target_commitish="${{ github.sha }}" `
+              --jq .body
+          }
+
+          $notes | Out-File -FilePath $notesPath -Encoding utf8
+          "path=$notesPath" >> $env:GITHUB_OUTPUT
+
       - name: Create GitHub release
         id: release
         env:
@@ -37,13 +67,23 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
+          $version = "${{ steps.version.outputs.version }}"
+          $title = "YouTube Uploader v$version"
+          $notesPath = "${{ steps.notes.outputs.path }}"
+
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag `
-              --title "YouTube Uploader $tag" `
-              --notes "See the assets to download this version and install." `
+              --title $title `
+              --notes-file $notesPath `
               --target "${{ github.sha }}"
+          } else {
+            gh release edit $tag `
+              --title $title `
+              --notes-file $notesPath `
+              --draft=false
           }
+
           $id = (gh release view $tag --json id | ConvertFrom-Json).id
           "id=$id" >> $env:GITHUB_OUTPUT
 
@@ -56,9 +96,3 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: '--target x86_64-pc-windows-msvc'
-
-      - name: Publish release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: pwsh
-        run: gh release edit "${{ github.ref_name }}" --draft=false
