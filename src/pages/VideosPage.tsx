@@ -45,14 +45,23 @@ export default function VideosPage({ authenticated }: Props) {
     }
   }, [authenticated, limit]);
 
-  useEffect(() => {
-    if (authenticated) {
-      void handleLoad();
-    } else {
+  const [prevAuthenticated, setPrevAuthenticated] = useState(authenticated);
+  if (authenticated !== prevAuthenticated) {
+    setPrevAuthenticated(authenticated);
+    if (!authenticated) {
       setVideos([]);
       setLoaded(false);
       setError(null);
     }
+  }
+
+  useEffect(() => {
+    if (!authenticated) {
+      return;
+    }
+    queueMicrotask(() => {
+      void handleLoad();
+    });
   }, [authenticated, handleLoad]);
 
   return (

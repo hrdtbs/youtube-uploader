@@ -52,8 +52,13 @@ export default function PlaylistsPage({ authenticated }: Props) {
   }, [authenticated, limit]);
 
   useEffect(() => {
-    void loadVideos();
-  }, [loadVideos]);
+    if (!authenticated) {
+      return;
+    }
+    queueMicrotask(() => {
+      void loadVideos();
+    });
+  }, [authenticated, loadVideos]);
 
   function toggleVideo(id: string) {
     setSelected((current) =>
