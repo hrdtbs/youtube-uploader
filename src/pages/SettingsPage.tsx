@@ -28,6 +28,7 @@ import {
 } from '../lib/tauri';
 import PlaylistPicker from '../components/PlaylistPicker';
 import { formatErrorMessage } from '../lib/labels';
+import { checkForAppUpdates, getAppVersion } from '../lib/updater';
 import type { AppConfig, ScheduleSlotDef, VideoCategory } from '../types';
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -87,6 +88,10 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState('');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const skipAutoSave = useRef(true);
   const saveVersion = useRef(0);
 
@@ -100,6 +105,7 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
         if (loadedConfig.schedule.startDate !== 'auto') {
           setManualStartDate(loadedConfig.schedule.startDate);
         }
+        setAppVersion(await getAppVersion());
         try {
           setCategories(await categoriesList('JP', 'ja', false));
         } catch {
@@ -162,6 +168,36 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
     const selected = await pickDirectory('デフォルト動画フォルダ');
     if (selected) {
       setUploadDir(selected);
+    }
+  }
+
+  async function handleCheckUpdate() {
+    setCheckingUpdate(true);
+    setUpdateMessage(null);
+    setUpdateError(null);
+
+    try {
+      const result = await checkForAppUpdates();
+      switch (result.kind) {
+        case 'skipped':
+          setUpdateMessage('開発モードでは更新確認を行いません。');
+          break;
+        case 'up_to_date':
+          setUpdateMessage('最新バージョンを使用しています。');
+          break;
+        case 'declined':
+          setUpdateMessage(`バージョン ${result.version} の更新を後で行うように選択しました。`);
+          break;
+        case 'installed':
+          break;
+        case 'error':
+          setUpdateError(result.message);
+          break;
+      }
+    } catch (err) {
+      setUpdateError(formatErrorMessage(err));
+    } finally {
+      setCheckingUpdate(false);
     }
   }
 
@@ -531,6 +567,28 @@ export default function SettingsPage({ authenticated }: { authenticated: boolean
           authenticated={authenticated}
           label="デフォルト再生リスト"
         />
+      </Card>
+
+      <Card withBorder padding="md" radius="md">
+        <Title order={3} mb="md">
+          アプリの更新
+        </Title>
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">
+            現在のバージョン: {appVersion || '—'}
+          </Text>
+          <Group>
+            <Button
+              variant="outline"
+              onClick={() => void handleCheckUpdate()}
+              loading={checkingUpdate}
+            >
+              更新を確認
+            </Button>
+          </Group>
+          {updateMessage ? <Alert color="blue">{updateMessage}</Alert> : null}
+          {updateError ? <Alert color="red">{updateError}</Alert> : null}
+        </Stack>
       </Card>
 
       {error ? <Alert color="red">{error}</Alert> : null}
