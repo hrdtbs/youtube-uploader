@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- GitHub Releases 経由の自動更新機能（起動時チェック、設定画面からの手動確認）
+
 ## [0.0.1] - 2026-06-20
 
 ### Added

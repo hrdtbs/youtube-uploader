@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Center, Loader } from '@mantine/core';
 import { authStatus, initApp, oauthCredentialsGet } from './lib/tauri';
+import { checkForAppUpdates } from './lib/updater';
 import type { AuthStatus } from './types';
 import AppLayout from './components/layout/AppLayout';
 import UploadPage from './pages/UploadPage';
@@ -32,6 +33,7 @@ export default function App() {
       await initApp();
       await Promise.all([refreshStatus(), refreshOAuthConfigured()]);
       setLoading(false);
+      void checkForAppUpdates();
     })();
   }, []);
 
