@@ -47,11 +47,25 @@ export interface UploadSummary {
   failed: number;
 }
 
+export type UploadProgressKind =
+  | 'batch_start'
+  | 'start'
+  | 'progress'
+  | 'success'
+  | 'error'
+  | 'warning'
+  | 'summary';
+
+export type UploadFileStatus = 'pending' | 'uploading' | 'success' | 'error' | 'warning';
+
 export interface UploadProgressEvent {
-  kind: string;
+  kind: UploadProgressKind;
   relative_path?: string | null;
   message: string;
   video_id?: string | null;
+  percent?: number | null;
+  file_index?: number | null;
+  file_count?: number | null;
 }
 
 export interface AppSettings {

@@ -577,7 +577,7 @@ impl YouTubeClient {
         mut on_progress: F,
     ) -> anyhow::Result<String>
     where
-        F: FnMut(String),
+        F: FnMut(u32),
     {
         #[derive(serde::Serialize)]
         struct RequestBody<'a> {
@@ -668,7 +668,7 @@ impl YouTubeClient {
             uploaded += read as u64;
             let percent =
                 u32::try_from((uploaded.saturating_mul(100)) / total_size.max(1)).unwrap_or(100);
-            on_progress(format!("Upload progress: {percent}%"));
+            on_progress(percent);
 
             if response.status().is_success() {
                 #[derive(Deserialize)]
