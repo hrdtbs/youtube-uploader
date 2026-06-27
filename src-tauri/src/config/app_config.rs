@@ -678,7 +678,23 @@ pub async fn upload_run(
         failed: 0,
     };
 
-    for (video, slot) in pending.into_iter().zip(slots) {
+    let file_count = u32::try_from(pending.len()).unwrap_or(u32::MAX);
+
+    emit_progress(
+        app,
+        UploadProgressEvent {
+            kind: "batch_start".to_string(),
+            relative_path: None,
+            message: format!("Starting upload of {file_count} file(s)"),
+            video_id: None,
+            percent: None,
+            file_index: None,
+            file_count: Some(file_count),
+        },
+    );
+
+    for (position, (video, slot)) in pending.into_iter().zip(slots).enumerate() {
+        let file_index = u32::try_from(position + 1).unwrap_or(u32::MAX);
         let metadata = templates::build_metadata(Path::new(&video.absolute_path), &config.template);
         emit_progress(
             app,
@@ -687,6 +703,9 @@ pub async fn upload_run(
                 relative_path: Some(video.relative_path.clone()),
                 message: format!("Uploading: {}", video.relative_path),
                 video_id: None,
+                percent: Some(0),
+                file_index: Some(file_index),
+                file_count: Some(file_count),
             },
         );
 
@@ -695,14 +714,17 @@ pub async fn upload_run(
                 &video.absolute_path,
                 &metadata,
                 &slot.publish_at_utc,
-                |message| {
+                |percent| {
                     emit_progress(
                         app,
                         UploadProgressEvent {
                             kind: "progress".to_string(),
                             relative_path: Some(video.relative_path.clone()),
-                            message,
+                            message: format!("Upload progress: {percent}%"),
                             video_id: None,
+                            percent: Some(percent),
+                            file_index: Some(file_index),
+                            file_count: Some(file_count),
                         },
                     );
                 },
@@ -719,6 +741,9 @@ pub async fn upload_run(
                                 relative_path: Some(video.relative_path.clone()),
                                 message: format!("Uploaded but failed to add to playlist: {error}"),
                                 video_id: Some(video_id.clone()),
+                                percent: Some(100),
+                                file_index: Some(file_index),
+                                file_count: Some(file_count),
                             },
                         );
                     }
@@ -749,6 +774,9 @@ pub async fn upload_run(
                         relative_path: Some(video.relative_path.clone()),
                         message: format!("Uploaded: {video_id}"),
                         video_id: Some(video_id),
+                        percent: Some(100),
+                        file_index: Some(file_index),
+                        file_count: Some(file_count),
                     },
                 );
             }
@@ -761,6 +789,9 @@ pub async fn upload_run(
                         relative_path: Some(video.relative_path.clone()),
                         message: error.to_string(),
                         video_id: None,
+                        percent: None,
+                        file_index: Some(file_index),
+                        file_count: Some(file_count),
                     },
                 );
             }
@@ -781,6 +812,9 @@ pub async fn upload_run(
                 summary.uploaded, summary.skipped, summary.failed
             ),
             video_id: None,
+            percent: None,
+            file_index: None,
+            file_count: Some(file_count),
         },
     );
 

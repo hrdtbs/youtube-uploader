@@ -109,6 +109,9 @@ pub struct UploadProgressEvent {
     pub relative_path: Option<String>,
     pub message: String,
     pub video_id: Option<String>,
+    pub percent: Option<u32>,
+    pub file_index: Option<u32>,
+    pub file_count: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
