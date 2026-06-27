@@ -16,3 +16,7 @@
 - プロジェクトを作成
 - YouTube Data API v3 を有効化
 - OAuth 同意画面を設定
+
+## 開発
+
+メンテナ向けの開発・リリース手順は [docs/MAINTAINER.md](docs/MAINTAINER.md) を参照してください。
