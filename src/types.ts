@@ -48,13 +48,7 @@ export interface UploadSummary {
 }
 
 export type UploadProgressKind =
-  | 'batch_start'
-  | 'start'
-  | 'progress'
-  | 'success'
-  | 'error'
-  | 'warning'
-  | 'summary';
+  'batch_start' | 'start' | 'progress' | 'success' | 'error' | 'warning' | 'summary';
 
 export type UploadFileStatus = 'pending' | 'uploading' | 'success' | 'error' | 'warning';
 
