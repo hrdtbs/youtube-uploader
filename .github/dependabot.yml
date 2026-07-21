@@ -24,3 +24,8 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    # dtolnay/rust-toolchain force-pushes floating refs (stable/beta/nightly),
+    # so SHA pins become unreachable and Dependabot crashes with
+    # "error: no such commit". Track toolchain updates manually instead.
+    ignore:
+      - dependency-name: dtolnay/rust-toolchain
