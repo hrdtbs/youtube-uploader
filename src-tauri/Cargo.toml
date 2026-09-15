@@ -30,7 +30,7 @@ anyhow = "1"
 regex = "1"
 url = "2"
 tiny_http = "0.12"
-dirs = "6"
+dirs = "7"
 walkdir = "2"
 futures-util = "0.3"
 tokio-util = { version = "0.7", features = ["io"] }
