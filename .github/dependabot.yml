@@ -17,6 +17,12 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
+    # GHSA-wrw7-89jp-8q8g needs glib >= 0.20.0, but Tauri 2's Linux stack
+    # (gtk 0.18 / webkit2gtk) pins glib to 0.18.x. Bumping requires the
+    # GTK4 + WebKitGTK 6 migration (Tauri 3). Until then Dependabot security
+    # updates fail with security_update_not_possible and mark CI red.
+    ignore:
+      - dependency-name: glib
 
   - package-ecosystem: github-actions
     directory: /
