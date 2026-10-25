@@ -5,4 +5,7 @@ allowBuilds:
   esbuild: true
   lefthook: true
 minimumReleaseAge: 1440
+overrides:
+  browserslist: 4.29.0
+  baseline-browser-mapping: 2.11.25
 savePrefix: ''
